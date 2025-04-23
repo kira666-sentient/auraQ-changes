@@ -3,6 +3,11 @@ import sys
 import json
 import urllib.request
 import urllib.error
+from dotenv import load_dotenv
+
+# Explicitly load environment variables from .env file
+load_dotenv()
+print("Environment variables loaded from .env file")
 
 def read_env_file():
     """Read the .env file and extract the GEMINI_API_KEY"""
@@ -60,6 +65,7 @@ def check_gemini_api_key(api_key):
         
         try:
             req = urllib.request.Request(url, data=data, headers=headers, method='POST')
+            print(f"Sending request to: {url[:url.index('?key=') + 5]}[API_KEY_HIDDEN]")
             
             with urllib.request.urlopen(req) as response:
                 if response.status == 200:
@@ -102,11 +108,24 @@ def verify_api_key(api_key):
 
 if __name__ == "__main__":
     print("Testing Gemini API key...")
-    api_key = read_env_file()
     
-    if api_key:
-        print(f"Found API key in .env file: {api_key[:5]}...{api_key[-5:]}")
-        verify_api_key(api_key)
-        check_gemini_api_key(api_key)
+    # First check environment variable
+    env_api_key = os.environ.get("GEMINI_API_KEY")
+    if env_api_key:
+        print(f"Found API key in environment variables: {env_api_key[:5]}...{env_api_key[-5:]}")
+        verify_api_key(env_api_key)
+        check_gemini_api_key(env_api_key)
     else:
-        print("No API key found in .env file")
+        print("No API key found in environment variables, checking .env file...")
+        file_api_key = read_env_file()
+        
+        if file_api_key:
+            print(f"Found API key in .env file: {file_api_key[:5]}...{file_api_key[-5:]}")
+            verify_api_key(file_api_key)
+            check_gemini_api_key(file_api_key)
+        else:
+            print("No API key found in .env file")
+            print("\nEnvironment variables:")
+            for key, value in os.environ.items():
+                if "KEY" in key.upper() or "TOKEN" in key.upper() or "API" in key.upper():
+                    print(f"{key}: {value[:3]}...{value[-3:] if len(value) > 6 else value}")

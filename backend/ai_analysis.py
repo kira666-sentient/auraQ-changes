@@ -6,6 +6,10 @@ import time
 import logging
 from pathlib import Path
 from functools import wraps
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Setup logging for model performance tracking
 log_dir = os.path.join(os.path.dirname(__file__), "logs")
