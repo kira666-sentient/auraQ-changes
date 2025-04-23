@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signup | Aura-detector</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@100..900&family=Space+Grotesk:wght@300..700&display=swap" rel="stylesheet">
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/global.css">
+    <link rel="stylesheet" href="../css/signup.css">
+    <link rel="stylesheet" href="../components/navbar.css">
+    <link rel="stylesheet" href="../components/footer.css">
+</head>
+<body>
+    <!-- Include Navbar -->
+    <div id="navbar"></div>
+
+    <!-- Signup Container -->
+    <div class="signup-container">
+        
+        <!-- Left Side: Image & Text -->
+        <div class="signup-left">
+            <img src="../assets/signup.png" alt="Welcome Illustration">
+            <h2>Join Now</h2>
+            <p>Step into the next era of innovation. Sign up now and improve your life!</p>
+        </div>
+
+        <!-- Right Side: Signup Form -->
+        <div class="signup-right">
+
+            <div class="signup-heading">
+                <h1>Create account</h1>
+                <p>Enter your details</p>
+            </div>
+
+            <form id="signup-form">
+                <div class="input-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" placeholder="Enter your username" required>
+                </div>
+
+                <div class="input-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" placeholder="Enter your email" required>
+                </div>
+
+                <div class="input-group password-container">
+                    <label for="signup-password">Password</label>
+                    <input type="password" id="signup-password" placeholder="Enter your password" required>
+                    <img id="toggleSignupPassword" class="eye-icon" src="../assets/mdi_hide.png" alt="Toggle Password">
+                </div>
+
+                <button class="signuppg-btn" type="submit">Create account</button>
+                
+                <div class="sup-bottom">
+                    <p>or sign up with</p>
+                    <div class="social-signup">
+                        <button class="google"><img src="../assets/google.png" alt="Google"></button>
+                        <button class="github"><img src="../assets/github.png" alt="GitHub"></button>
+                        <button class="microsoft"><img src="../assets/microsoft.png" alt="Microsoft"></button>
+                    </div>
+
+                    <p class="p-login">Have an account? <a href="login.html">Login</a></p>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div id="footer"></div>
+
+    <!-- Scripts -->
+    <script src="../js/config.js"></script>
+    <script src="../js/main.js"></script>
+    <script src="../js/signup.js"></script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        /* Hide user actions by default with !important to ensure it takes precedence */
+        #user-actions-container {
+            display: none !important; 
+        }
+        /* JS will override this with inline style when needed */
+    </style>
+</head>
+<body>
+    
+    <nav class="navbar">
+        <!-- Logo -->
+        <div class="logo">
+            <img src="../assets/logo.png" alt="Aura-detector logo">
+        </div>
+
+        <!-- Navbar Links -->
+        <ul class="nav-links">
+            <li><a href="#">How it works?</a></li>
+            <li><a href="#">About us</a></li>
+            <li><a href="#">Contact us</a></li>
+        </ul>
+        
+        <!-- User Actions (Only shown when logged in and on dashboard) -->
+        <div class="user-actions" id="user-actions-container"> 
+            <button class="reward-btn">
+                Credits: <span id="reward-points">0</span>
+            </button>            
+            <button class="signout-btn">Sign Out</button>
+        </div>
+    </nav>
+
+</body>
+</html>

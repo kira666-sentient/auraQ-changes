@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aura-detector - Dashboard</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@100..900&family=Space+Grotesk:wght@300..700&display=swap" rel="stylesheet">
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/global.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <link rel="stylesheet" href="../components/navbar.css">
+    <link rel="stylesheet" href="../components/footer.css">
+    <style>
+        /* Additional styles for better result visibility */
+        #mood-display, #feedback-display {
+            margin: 15px 0;
+            padding: 10px;
+            border-radius: 8px;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        #mood-display {
+            color: #4caf50;
+        }
+        #feedback-display {
+            color: #2196f3;
+        }
+        .results-section {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.05);
+        }
+        /* Auth redirect style */
+        .redirect-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            font-size: 18px;
+        }
+        /* Debug info */
+        #debug-info {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.7);
+            color: #00ff00;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            max-width: 300px;
+            max-height: 200px;
+            overflow: auto;
+            z-index: 9999;
+        }
+    </style>
+    
+    <!-- Authentication check -->
+    <script>
+        // Immediately check if user is authenticated by checking both storage locations
+        document.addEventListener("DOMContentLoaded", function() {
+            // Check both sessionStorage (new secure way) and localStorage (legacy way)
+            const sessionToken = sessionStorage.getItem("token");
+            const localToken = localStorage.getItem("token");
+            
+            // If we have a token in localStorage but not in sessionStorage, migrate it
+            if (!sessionToken && localToken) {
+                console.log("Migrating token from localStorage to sessionStorage");
+                sessionStorage.setItem("token", localToken);
+                sessionStorage.setItem("username", localStorage.getItem("username"));
+                // Set an expiry time (24 hours from now)
+                const expiryTime = Date.now() + (86400 * 1000);
+                sessionStorage.setItem("token_expiry", expiryTime.toString());
+            }
+            
+            // Final check - if no token in either location, redirect to login
+            if (!sessionStorage.getItem("token") && !localStorage.getItem("token")) {
+                console.log("No authentication token found. Redirecting to login page.");
+                window.location.href = "login.html";
+            }
+        });
+    </script>
+</head>
+<body>
+    <div id="navbar"></div>
+
+    <!-- ✅ Daily Greeting Section -->
+    <section class="greeting">
+        <h2>Welcome back, <span id="username">User</span>!</h2>
+        <p>Hope your day went well! Keep track of your journey.</p>
+        <p><strong>Today's Date:</strong> <span id="current-date"></span></p>
+    </section>
+
+    <!-- ✅ Main Content -->
+    <main>
+        <h2>Daily Journal Entry</h2>
+        <!-- Changed to div to completely eliminate form submission behavior -->
+        <div id="story-form">
+            <textarea id="story-input" placeholder="Write your daily story..." required></textarea>
+            <button type="button" id="submit-story">Submit</button>
+        </div>
+        
+        <!-- Results section with improved visibility -->
+        <div class="results-section">
+            <h3>Analysis Results</h3>
+            <div id="mood-display">Mood: --</div>
+            <div id="feedback-display">Feedback: --</div>
+        </div>
+        
+        <h3>Weekly Mood Review</h3>
+        <div id="weekly-review">No data yet.</div>
+    </main>
+
+    <!-- ✅ Footer -->
+    <div id="footer"></div>
+    
+    <!-- Debug info panel -->
+    <div id="debug-info">Loading debug info...</div>
+    
+    <!-- Scripts - Load in correct order -->
+    <script src="../js/config.js"></script>
+    <script src="../js/main.js"></script>
+    <script src="../js/dashboard.js"></script>
+    
+    <!-- Debug script -->
+    <script>
+        // Add debug information
+        document.addEventListener('DOMContentLoaded', function() {
+            const debugPanel = document.getElementById('debug-info');
+            
+            // Display initial debug info
+            function updateDebugInfo() {
+                const submitBtn = document.getElementById('submit-story');
+                const storyInput = document.getElementById('story-input');
+                
+                debugPanel.innerHTML = `
+                    <strong>Debug Info:</strong><br>
+                    Submit Button: ${submitBtn ? '✅ Found' : '❌ Missing'}<br>
+                    Story Input: ${storyInput ? '✅ Found' : '❌ Missing'}<br>
+                    Token: ${tokenManager.getToken() ? '✅ Present' : '❌ Missing'}<br>
+                    Config: ${typeof config !== 'undefined' ? '✅ Loaded' : '❌ Missing'}<br>
+                    API Base: ${config ? config.API_BASE_URL : 'undefined'}<br>
+                    Click Listeners: Checking...
+                `;
+                
+                // Check if click handler is attached (after a short delay to ensure dashboard.js runs)
+                setTimeout(() => {
+                    if (submitBtn) {
+                        // Create a test for event listeners
+                        const originalClick = submitBtn.onclick;
+                        let hasListener = false;
+                        
+                        submitBtn.onclick = function() {
+                            hasListener = true;
+                            debugPanel.innerHTML += '<br>✅ Click handler triggered';
+                            if (originalClick) originalClick.apply(this, arguments);
+                        };
+                        
+                        // Manual button click simulation for testing
+                        submitBtn.addEventListener('click', function() {
+                            // Update debug about the click
+                            debugPanel.innerHTML += '<br>Button clicked at ' + new Date().toLocaleTimeString();
+                            
+                            // Check if story input has content
+                            if (storyInput && storyInput.value.trim() === '') {
+                                debugPanel.innerHTML += '<br>❌ Story input is empty';
+                            } else {
+                                debugPanel.innerHTML += '<br>✅ Story has content';
+                            }
+                        });
+                    }
+                }, 1000);
+            }
+            
+            updateDebugInfo();
+            
+            // Add direct click handler for submit button for testing
+            const submitButton = document.getElementById('submit-story');
+            if (submitButton) {
+                submitButton.addEventListener('click', function() {
+                    debugPanel.innerHTML += '<br>🔄 Direct click handler called';
+                    
+                    // Get the story input
+                    const storyInput = document.getElementById('story-input');
+                    if (!storyInput || !storyInput.value.trim()) {
+                        debugPanel.innerHTML += '<br>❌ Story input is empty';
+                        return;
+                    }
+                    
+                    // Simple fallback implementation if the main one fails
+                    debugPanel.innerHTML += '<br>📤 Attempting manual API call...';
+                    
+                    fetch(config.getUrl('analyze'), {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${tokenManager.getToken()}`
+                        },
+                        body: JSON.stringify({ story: storyInput.value.trim() })
+                    })
+                    .then(response => {
+                        debugPanel.innerHTML += `<br>📥 API response status: ${response.status}`;
+                        return response.json();
+                    })
+                    .then(data => {
+                        debugPanel.innerHTML += `<br>✅ API data received: ${data.mood}`;
+                        
+                        // Update UI
+                        const moodDisplay = document.getElementById('mood-display');
+                        const feedbackDisplay = document.getElementById('feedback-display');
+                        
+                        if (moodDisplay) moodDisplay.textContent = `Mood: ${data.mood || 'Unknown'}`;
+                        if (feedbackDisplay) feedbackDisplay.textContent = `Feedback: ${data.feedback || 'No feedback'}`;
+                    })
+                    .catch(error => {
+                        debugPanel.innerHTML += `<br>❌ API error: ${error.message}`;
+                    });
+                });
+            }
+        });
+    </script>
+</body>
+</html>

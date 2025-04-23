@@ -1,0 +1,51 @@
+/* Fix the footer to the bottom of the page */
+html, body {
+    height: 100%;  /* Ensure full height for the page */
+    margin: 0;
+}
+
+.main-content {
+    flex-grow: 1;  /* Allow content to take available space */
+}
+
+.foot {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px 0;
+    width: 100%;
+    position: relative;  /* Change from fixed to relative */
+    bottom: 0;
+    left: 0;
+    background-color: #220138;
+}
+
+.foot-links {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    list-style: none;
+    gap: 15px;
+    padding: 0;
+    margin: 0;
+    max-width: 200px;
+}
+
+.foot-links li {
+    width: auto;
+    height: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.foot-links a img {
+    width: 35px;
+    height: 35px;
+    display: block;
+    transition: transform 0.3s ease;
+}
+
+.foot-links a img:hover {
+    transform: scale(1.1);
+}

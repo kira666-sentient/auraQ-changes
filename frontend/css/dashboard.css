@@ -1,0 +1,309 @@
+/* 🌙 Background Colors */
+body {
+    background-color: #220138;
+    color: white;
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+/* ✅ Header */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 50px;
+}
+
+.logo {
+    height: 50px;
+}
+
+nav ul {
+    list-style: none;
+    display: flex;
+    gap: 20px;
+}
+nav ul li {
+    margin: 0 20px;
+}
+
+nav ul li:hover {
+    color: #ccc;
+    font-weight: bold;
+}
+
+nav ul li a {
+    text-decoration: none;
+    color: #cdcdcd;
+    font-size: 20px;
+}
+
+/* ✅ Buttons */
+button {
+    border: none;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+.reward-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background-color: transparent;
+    color: white;
+    font-size: 1rem;
+    font-weight: bold;
+    border: 2px solid #7a1a8f;
+    padding: 10px 25px;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: 0.3s;
+    height: 45px;
+}
+
+
+
+/* Hover effect */
+.reward-btn:hover {
+    background-color: #641074;
+}
+
+.user-actions {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+/* Logout Button */
+.signout-btn {
+    background-color: #641074;
+    color: white;
+    font-size: 1rem;
+    font-weight: bold;
+    border: 1px solid azure;
+    border-radius: 25px;
+    cursor: pointer;
+    padding: 10px 25px;
+    height: 45px;
+    transition: 0.3s;
+}
+
+.signout-btn:hover {
+    background-color: #7a1a8f;
+}
+
+/* ✅ Navbar */
+.navbar {
+    display: flex;
+    justify-content: flex-end;
+    padding: 15px;
+    background-color: #300837;
+}
+
+.navbar-buttons {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+
+/* ✅ Footer */
+footer {
+    text-align: center;
+    padding: 20px;
+    background-color: #300837;
+}
+
+/* Style for main content */
+main {
+    max-width: 800px;
+    margin: 20px auto;
+    padding: 20px;
+    background: rgb(255 255 255 / 18%);
+    border-radius: 10px;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+    text-align: center;
+}
+
+/* Journal Entry Textarea */
+#story-form textarea {
+    width: 90%;
+    height: 150px;
+    padding: 10px;
+    font-size: 16px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    resize: none;
+    outline: none;
+}
+
+#story-form button {
+    margin-top: 10px;
+    padding: 10px 20px;
+    background: #007bff;
+    color: #fff;
+    font-size: 16px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s ease-in-out;
+}
+
+#story-form button:hover {
+    background: #0056b3;
+}
+
+/* Mood & Feedback Display */
+#mood-display, #feedback-display {
+    margin-top: 15px;
+    font-size: 18px;
+    font-weight: bold;
+    color: #333;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 5px;
+    border: 1px solid #ddd;
+    white-space: pre-wrap; /* Allows text to wrap properly */
+    word-wrap: break-word; /* Ensures long words wrap */
+    min-height: 40px; /* Default height */
+    max-width: 100%; /* Prevents overflow */
+    overflow-wrap: break-word;
+}
+
+/* Weekly Mood Review Section */
+#weekly-review {
+    margin-top: 15px;
+    padding: 15px;
+    font-size: 16px;
+    color: #555;
+    background: #f1f1f1;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    margin-bottom: 30px;
+}
+
+/* Weekly Mood Review Styles */
+.weekly-review-container {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 20px;
+    margin: 15px 0;
+}
+
+.mood-summary {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 15px;
+}
+
+.mood-distribution {
+    margin-bottom: 20px;
+}
+
+.mood-bar {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.mood-label {
+    width: 100px;
+    font-weight: 500;
+}
+
+.mood-progress {
+    flex-grow: 1;
+    background-color: rgba(255, 255, 255, 0.1);
+    height: 12px;
+    border-radius: 6px;
+    margin: 0 10px;
+    overflow: hidden;
+}
+
+.mood-fill {
+    height: 100%;
+    background-color: #4caf50;
+    border-radius: 6px;
+}
+
+.mood-percentage {
+    width: 40px;
+    text-align: right;
+}
+
+.daily-moods {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.day-mood {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px;
+    border-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.05);
+    width: calc(100% / 7 - 10px);
+    text-align: center;
+}
+
+.day-mood.no-data {
+    opacity: 0.5;
+}
+
+.day-label {
+    font-weight: 500;
+    margin-bottom: 5px;
+}
+
+.day-mood-value {
+    font-size: 0.8rem;
+}
+
+.review-insights {
+    background-color: rgba(76, 175, 80, 0.1);
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 15px;
+}
+
+/* Reward Points Display */
+#reward-points {
+    font-weight: bold;
+    color: #ff9800;
+    font-size: 18px;
+}
+
+main h2{
+    font-size: 24px;
+    color: rgb(255, 255, 255);
+}
+
+.greeting{
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 2px;
+    margin: 8px;
+}
+
+.greeting h2{
+    font-size: 2rem;
+    font-weight: bold;
+    margin: 0px;
+    margin-top: 20px;
+}
+
+.greeting p{
+    margin: 4px;
+    font-weight: lighter;
+}
+
+.greeting p2{
+    padding-top: 20px;
+    font-weight: lighter;
+}
