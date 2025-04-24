@@ -49,3 +49,41 @@ html, body {
 .foot-links a img:hover {
     transform: scale(1.1);
 }
+
+/* Mobile responsiveness */
+@media screen and (max-width: 768px) {
+    .foot {
+        padding: 15px 0;
+    }
+    
+    .foot-links {
+        gap: 10px;
+    }
+    
+    .foot-links a img {
+        width: 30px;
+        height: 30px;
+    }
+}
+
+/* Small phone screens */
+@media screen and (max-width: 480px) {
+    .foot {
+        padding: 10px 0;
+    }
+    
+    .foot-links {
+        gap: 15px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .foot-links li {
+        height: 30px;
+    }
+    
+    .foot-links a img {
+        width: 25px;
+        height: 25px;
+    }
+}

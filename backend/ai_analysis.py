@@ -9,7 +9,7 @@ from functools import wraps
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
-load_dotenv()
+load_dotenv(override=True)  # Add override=True to ensure environment variables are properly loaded
 
 # Setup logging for model performance tracking
 log_dir = os.path.join(os.path.dirname(__file__), "logs")
@@ -176,8 +176,11 @@ def analyze_mood(story):
             result = analyze_with_gemini(story)
             if result:
                 return result
+            else:
+                # Log that Gemini analysis didn't yield a usable result
+                model_logger.warning("Gemini analysis completed but did not return a valid result. Falling back.")
         except Exception as e:
-            model_logger.error(f"Gemini API error: {str(e)}")
+            model_logger.error(f"Gemini API error during analyze_mood call: {str(e)}")
     
     # Try Naive Bayes next if available
     if SKLEARN_REQUIREMENTS_MET and SKLEARN_AVAILABLE and naive_bayes_model is not None:
@@ -203,27 +206,38 @@ def analyze_with_gemini(story):
     
     # Check if API key is configured
     if not GEMINI_API_KEY:
+        model_logger.error("ERROR: No Gemini API key available")
         print("ERROR: No Gemini API key available")
+        return None
+    
+    # Validate API key format before attempting to use
+    if not GEMINI_API_KEY.startswith("AIza"):
+        model_logger.error(f"Invalid Gemini API key format: {GEMINI_API_KEY[:5]}...")
+        print(f"ERROR: Invalid Gemini API key format. Google API keys typically start with 'AIza'")
         return None
         
     try:
         # Try to get available models with better error handling
         try:
-            print("Attempting to list available Gemini models...")
+            model_logger.info("Attempting to list available Gemini models...")
             available_models = [m.name for m in genai.list_models()]
-            print(f"Available Gemini models: {available_models}")
+            model_logger.info(f"Available Gemini models: {available_models}")
         except Exception as e:
-            print(f"Error listing Gemini models: {str(e)}")
+            model_logger.error(f"Error listing Gemini models: {str(e)}")
+            if "invalid api key" in str(e).lower():
+                print(f"ERROR: Invalid Gemini API key. Please check your API key in the .env file.")
+                return None
             # Try a direct approach with a known model instead of listing
-            print("Falling back to direct model usage...")
+            model_logger.info("Falling back to direct model usage...")
             available_models = []
     
         # Filter for modern models - prioritizing the stable ones
         preferred_models = [
+            "gemini-pro",         # Most reliable model to try first
+            "models/gemini-pro",  # Alternative format
+            "v1beta/models/gemini-2.0-flash",
             "models/gemini-1.5-flash",
             "models/gemini-1.5-pro", 
-            "models/gemini-pro",  # Added classic model name
-            "gemini-pro",         # Added alternative format
             "models/gemini-1.0-pro",
             "models/gemini-1.5-flash-latest"
         ]
@@ -237,16 +251,16 @@ def analyze_with_gemini(story):
         
         if not model_name:
             # If no suitable model found
-            print("No suitable Gemini model found, using default gemini-pro")
+            model_logger.warning("No suitable Gemini model found, using default gemini-pro")
             model_name = "gemini-pro"  # Use default model
         
-        print(f"Using Gemini model: {model_name}")
+        model_logger.info(f"Using Gemini model: {model_name}")
         
         # Configure the model with error catching
         try:
             model = genai.GenerativeModel(model_name)
         except Exception as e:
-            print(f"Error configuring model {model_name}: {str(e)}")
+            model_logger.error(f"Error configuring model {model_name}: {str(e)}")
             return None
         
         # Prompt focusing on direct mood classification and feedback generation
@@ -266,7 +280,7 @@ def analyze_with_gemini(story):
         
         # Generate response from Gemini with specific configuration and error handling
         try:
-            print("Sending request to Gemini API...")
+            model_logger.info("Sending request to Gemini API...")
             response = model.generate_content(
                 prompt,
                 generation_config={
@@ -277,14 +291,14 @@ def analyze_with_gemini(story):
                     "response_mime_type": "application/json"
                 }
             )
-            print("Successfully received response from Gemini API")
+            model_logger.info("Successfully received response from Gemini API")
             
             # Get the raw response and log it
             raw_response = response.text.strip()
-            print(f"Raw Gemini response: {raw_response}")
+            model_logger.info(f"Raw Gemini response: {raw_response}")
             
         except Exception as e:
-            print(f"Error generating content from Gemini: {str(e)}")
+            model_logger.error(f"Error generating content from Gemini: {str(e)}")
             return None
         
         # Extract JSON - improved handling
@@ -292,16 +306,17 @@ def analyze_with_gemini(story):
             # First attempt: Try direct parsing (if the response is already clean JSON)
             try:
                 result = json.loads(raw_response)
-                print("Successfully parsed JSON directly")
-            except json.JSONDecodeError:
+                model_logger.info("Successfully parsed JSON directly")
+            except json.JSONDecodeError as json_err:
+                model_logger.warning(f"Direct JSON parsing failed: {json_err}. Attempting cleaning.")
                 # Clean the response and try again
                 cleaned_json = clean_json_response(raw_response)
-                print(f"Cleaned JSON: {cleaned_json}")
+                model_logger.info(f"Cleaned JSON: {cleaned_json}")
                 result = json.loads(cleaned_json)
             
             # Validate the result has the required fields
             if 'mood' not in result or 'feedback' not in result:
-                print(f"WARNING: Missing expected fields in Gemini response: {result}")
+                model_logger.warning(f"Missing expected fields ('mood', 'feedback') in Gemini response: {result}")
                 return None
             
             # Ensure mood is one of the valid moods
@@ -310,14 +325,14 @@ def analyze_with_gemini(story):
                 closest_mood = get_closest_mood(result['mood'], valid_moods)
                 result['mood'] = closest_mood
             
-            print(f"AI analyzed mood: {result['mood']}, feedback: {result['feedback']}")
+            model_logger.info(f"AI analyzed mood: {result['mood']}, feedback: {result['feedback']}")
             return result
         except Exception as e:
-            print(f"ERROR: Failed to process Gemini response: {str(e)}")
+            model_logger.error(f"ERROR: Failed to process Gemini response: {str(e)}")
             return None
             
     except Exception as e:
-        print(f"Unexpected error in analyze_with_gemini: {str(e)}")
+        model_logger.error(f"Unexpected error in analyze_with_gemini: {str(e)}")
         return None
 
 def naive_bayes_fallback(story):

@@ -65,16 +65,16 @@
     margin-bottom: 15px;
 }
 
-/* Input Groups */
+/* Input Groups with improved spacing */
 .input-group {
     display: flex;
     flex-direction: column;
-    margin-bottom: 16px;
+    margin-bottom: 20px; /* Increased from 16px for better spacing */
 }
 
 .input-group label {
     font-weight: 500;
-    margin-bottom: 5px;
+    margin-bottom: 7px; /* Slightly increased for better readability */
 }
 
 .input-group input {
@@ -83,6 +83,72 @@
     border: 1px solid #ccc;
     border-radius: 8px;
     font-size: 1rem;
+}
+
+/* Error and Success Messages */
+.form-error, .form-success {
+    padding: 6px 0;
+    font-size: 14px;
+    margin-top: 5px;
+    color: #ff4d4d;
+    transition: all 0.3s ease;
+    /* Start hidden */
+    opacity: 0;
+    visibility: hidden;
+    height: 0;
+    margin-top: 0;
+    padding: 0;
+    overflow: hidden;
+    display: none; /* Explicitly set display to none initially */
+}
+
+.form-error.is-active, .form-success.is-active {
+    /* Visible state */
+    display: block !important; /* Force display with !important */
+    visibility: visible;
+    opacity: 1;
+    height: auto;
+    margin-top: 5px;
+    padding: 5px 0;
+    border-radius: 4px;
+    background-color: transparent; /* Remove yellow background */
+    border: none; /* Remove debug border */
+}
+
+/* Keep success message color distinct */
+.form-success {
+    color: #4CAF50;
+}
+
+/* Keep success message color distinct when active */
+.form-success.is-active {
+    color: green !important; /* Override for success */
+    background-color: lightgreen !important;
+    border: 1px solid darkgreen !important;
+}
+
+/* Input validation styling */
+.input-group input.error {
+    border-color: #ff4d4d;
+    box-shadow: 0 0 0 1px rgba(255, 77, 77, 0.2);
+}
+
+.input-group input.success {
+    border-color: #4CAF50;
+    box-shadow: 0 0 0 1px rgba(76, 175, 80, 0.2);
+}
+
+/* Placeholder text styling */
+::placeholder {
+    color: #aaa;
+    opacity: 0.7;
+}
+
+/* Form input focus state */
+.input-group input:focus {
+    border-color: #9b51e0;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(155, 81, 224, 0.2);
 }
 
 /* Forgot Password Link */
@@ -95,17 +161,19 @@
     color: #fff;
 }
 
-/* Login Button */
+/* Sign Up Button */
 .signuppg-btn {
     width: 100%;
-    padding: 12px;
+    padding: 14px; /* Increased from 12px for better clickability */
     background: #9b51e0;
     color: #fff;
     border: none;
     border-radius: 8px;
     font-size: 1rem;
+    font-weight: 500; /* Added font weight */
     cursor: pointer;
-    margin-bottom: 20px;
+    margin-top: 10px;
+    margin-bottom: 25px; /* Increased from 20px */
     transition: background 0.3s ease;
 }
 
@@ -117,12 +185,14 @@
     display: flex;
     flex-direction: column;
     align-items: center; /* Center align content */
-    gap: 12px; /* Adds space between child elements */
+    gap: 15px; /* Increased from 12px */
+    margin-top: 5px; /* Added margin-top */
 }
 
 .social-signup {
     display: flex;
-    gap: 15px; /* Space between social buttons */
+    gap: 20px; /* Increased from 15px */
+    margin: 5px 0; /* Added vertical margin */
 }
 
 .p-login a{
@@ -162,10 +232,11 @@
     }
 }
 
-
+/* Password container and eye icon styling */
 .password-container {
     position: relative;
     width: 100%;
+    margin-bottom: 5px; /* Add space below the container */
 }
 
 .password-container input {
@@ -174,20 +245,105 @@
     padding-right: 40px; /* Space for the icon */
     font-size: 16px;
     border: 1px solid #ccc;
-    border-radius: 5px;
+    border-radius: 8px;
     box-sizing: border-box;
 }
 
+/* Fixed eye icon positioning with absolute position relative to input height */
 .password-container .eye-icon {
     position: absolute;
     right: 12px;
-    top: 50%;
-    width: 22px;
-    height: 22px;
+    top: 36px; /* Fixed position: label (21px) + label margin (7px) + input padding-top (8px) */
+    width: 24px;
+    height: 24px;
     cursor: pointer;
-    opacity: 0.7;
+    opacity: 0.8;
+    z-index: 10;
+    background: transparent;
+    pointer-events: auto;
 }
 
 .password-container .eye-icon:hover {
     opacity: 1;
+}
+
+/* Mobile responsiveness */
+@media screen and (max-width: 768px) {
+    .signup-container {
+        flex-direction: column;
+        height: auto;
+        padding: 20px;
+        gap: 30px;
+    }
+    
+    .signup-left {
+        width: 100%;
+        max-width: 100%;
+        padding: 20px 15px;
+    }
+    
+    .signup-left img {
+        width: 100%;
+        max-width: 280px;
+        margin: 0 auto 16px;
+    }
+    
+    .signup-left h2 {
+        font-size: 2.2rem;
+    }
+    
+    .signup-right {
+        width: 100%;
+        max-width: 100%;
+        padding: 25px 20px;
+    }
+    
+    .input-group {
+        width: 100%;
+    }
+    
+    .signuppg-btn {
+        width: 100%;
+    }
+    
+    .social-signup {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* Button with loading spinner */
+.btn-with-spinner {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Spinner hidden by default */
+.loading-spinner {
+    display: none;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s linear infinite;
+    position: absolute;
+    right: 20px; /* Position to the right side of button text */
+}
+
+/* Button in loading state */
+.signuppg-btn.loading .spinner-text {
+    opacity: 0.7;
+}
+
+.signuppg-btn.loading .loading-spinner {
+    display: block;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
 }

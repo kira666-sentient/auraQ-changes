@@ -52,6 +52,14 @@ def check_dependencies():
     # Optional packages that are nice to have but not essential
     optional_packages = ['nltk', 'gunicorn', 'waitress']
     
+    # Mapping from requirement name to import name if they differ
+    import_name_map = {
+        "python-dotenv": "dotenv",
+        "scikit-learn": "sklearn",
+        "google-generativeai": "google.generativeai" # Handle multi-part names
+        # Add other mappings here if needed
+    }
+    
     missing_required = []
     missing_critical = []
     missing_optional = []
@@ -62,8 +70,9 @@ def check_dependencies():
             continue
             
         try:
-            pkg_name = package.replace('-', '_').lower()
-            importlib.import_module(pkg_name)
+            # Use mapped import name if available, otherwise derive it
+            import_name = import_name_map.get(package, package.replace('-', '_').lower())
+            importlib.import_module(import_name)
         except ImportError:
             missing_required.append(package)
             if package.lower() in [pkg.lower() for pkg in critical_packages]:

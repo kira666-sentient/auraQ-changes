@@ -2,8 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aura-detector - Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dashboard | Aura-detector</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="../assets/logo.png">
     
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11,6 +14,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@100..900&family=Space+Grotesk:wght@300..700&display=swap" rel="stylesheet">
 
     <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/variables.css">
     <link rel="stylesheet" href="../css/global.css">
     <link rel="stylesheet" href="../css/dashboard.css">
     <link rel="stylesheet" href="../components/navbar.css">
@@ -91,6 +95,15 @@
             if (!sessionStorage.getItem("token") && !localStorage.getItem("token")) {
                 console.log("No authentication token found. Redirecting to login page.");
                 window.location.href = "login.html";
+            } else {
+                // Show user-actions-container if we're authenticated
+                setTimeout(() => {
+                    const userActionsContainer = document.getElementById("user-actions-container");
+                    if (userActionsContainer) {
+                        userActionsContainer.style.display = "flex";
+                        console.log("User actions container display set to flex on dashboard");
+                    }
+                }, 300); // Small delay to ensure navbar is loaded
             }
         });
     </script>
@@ -104,6 +117,14 @@
         <p>Hope your day went well! Keep track of your journey.</p>
         <p><strong>Today's Date:</strong> <span id="current-date"></span></p>
     </section>
+
+    <!-- Global loading overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-container">
+            <div class="loading-spinner"></div>
+            <p class="loading-text">Loading...</p>
+        </div>
+    </div>
 
     <!-- ✅ Main Content -->
     <main>

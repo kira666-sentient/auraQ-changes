@@ -128,59 +128,93 @@ main {
 }
 
 /* Journal Entry Textarea */
+#story-form {
+    margin: 20px auto;
+    position: relative;
+}
+
 #story-form textarea {
-    width: 90%;
+    width: 95%;
     height: 150px;
-    padding: 10px;
+    padding: 15px;
     font-size: 16px;
-    border: 2px solid #ddd;
-    border-radius: 8px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
     resize: none;
     outline: none;
+    background-color: rgba(255, 255, 255, 0.05);
+    color: #fff;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+#story-form textarea:focus {
+    border-color: #9b51e0;
+    box-shadow: 0 0 0 2px rgba(155, 81, 224, 0.2);
 }
 
 #story-form button {
-    margin-top: 10px;
-    padding: 10px 20px;
-    background: #007bff;
+    margin-top: 15px;
+    padding: 12px 25px;
+    background: #9b51e0;
     color: #fff;
     font-size: 16px;
+    font-weight: 500;
     border: none;
-    border-radius: 5px;
+    border-radius: 8px;
     cursor: pointer;
     transition: background 0.3s ease-in-out;
 }
 
 #story-form button:hover {
-    background: #0056b3;
+    background: #7a3bc4;
 }
 
 /* Mood & Feedback Display */
 #mood-display, #feedback-display {
-    margin-top: 15px;
-    font-size: 18px;
-    font-weight: bold;
-    color: #333;
-    padding: 10px;
-    background: #f8f9fa;
-    border-radius: 5px;
-    border: 1px solid #ddd;
-    white-space: pre-wrap; /* Allows text to wrap properly */
-    word-wrap: break-word; /* Ensures long words wrap */
-    min-height: 40px; /* Default height */
-    max-width: 100%; /* Prevents overflow */
+    margin: 12px 0;
+    font-size: 17px;
+    font-weight: 500;
+    padding: 15px;
+    border-radius: 8px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    min-height: 40px;
+    max-width: 100%;
     overflow-wrap: break-word;
+    background-color: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff;
+    transition: all 0.3s ease;
+}
+
+#mood-display {
+    border-left: 4px solid #4caf50;
+}
+
+#feedback-display {
+    border-left: 4px solid #2196f3;
+}
+
+/* Results Section Styling */
+.results-section {
+    margin-top: 25px;
+    padding: 20px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease;
 }
 
 /* Weekly Mood Review Section */
 #weekly-review {
-    margin-top: 15px;
+    margin-top: 20px;
     padding: 15px;
     font-size: 16px;
-    color: #555;
-    background: #f1f1f1;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
     border-radius: 8px;
-    border: 1px solid #ccc;
+    border: 1px solid rgba(255, 255, 255, 0.1);
     margin-bottom: 30px;
 }
 
@@ -190,6 +224,7 @@ main {
     border-radius: 10px;
     padding: 20px;
     margin: 15px 0;
+    transition: all 0.5s ease;
 }
 
 .mood-summary {
@@ -224,8 +259,13 @@ main {
 
 .mood-fill {
     height: 100%;
-    background-color: #4caf50;
+    background-color: #9b51e0;
     border-radius: 6px;
+    transition: width 1s ease-in-out;
+}
+
+.animate-fill {
+    transition: width 1s ease-in-out;
 }
 
 .mood-percentage {
@@ -237,6 +277,8 @@ main {
     display: flex;
     justify-content: space-between;
     margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 .day-mood {
@@ -248,6 +290,17 @@ main {
     background-color: rgba(255, 255, 255, 0.05);
     width: calc(100% / 7 - 10px);
     text-align: center;
+    transition: all 0.3s ease;
+}
+
+.day-mood:hover {
+    transform: translateY(-3px);
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.day-mood.today {
+    border: 1px solid rgba(155, 81, 224, 0.5);
+    background-color: rgba(155, 81, 224, 0.1);
 }
 
 .day-mood.no-data {
@@ -259,8 +312,22 @@ main {
     margin-bottom: 5px;
 }
 
+.mood-circle {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    margin: 5px 0;
+}
+
 .day-mood-value {
     font-size: 0.8rem;
+    margin-top: 4px;
+}
+
+.day-mood-count {
+    font-size: 0.7rem;
+    opacity: 0.7;
+    margin-top: 2px;
 }
 
 .review-insights {
@@ -268,6 +335,48 @@ main {
     padding: 15px;
     border-radius: 8px;
     margin-top: 15px;
+}
+
+/* Empty state and error state styling */
+.empty-state, .error-state {
+    text-align: center;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 15px 0;
+}
+
+.empty-state {
+    background-color: rgba(76, 175, 80, 0.05);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.error-state {
+    background-color: rgba(244, 67, 54, 0.05);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.refresh-btn, .retry-btn {
+    background-color: #9b51e0;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 4px;
+    margin-top: 10px;
+    cursor: pointer;
+    border: none;
+    font-size: 14px;
+    transition: background-color 0.3s ease;
+}
+
+.refresh-btn:hover, .retry-btn:hover {
+    background-color: #7a3bc4;
+}
+
+.retry-btn {
+    background-color: #f44336;
+}
+
+.retry-btn:hover {
+    background-color: #d32f2f;
 }
 
 /* Reward Points Display */
@@ -287,8 +396,10 @@ main h2{
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    padding: 2px;
-    margin: 8px;
+    padding: 10px 20px;
+    margin: 8px auto;
+    text-align: center;
+    max-width: 800px;
 }
 
 .greeting h2{
@@ -296,14 +407,190 @@ main h2{
     font-weight: bold;
     margin: 0px;
     margin-top: 20px;
+    text-align: center;
 }
 
 .greeting p{
-    margin: 4px;
+    margin: 8px 0;
     font-weight: lighter;
+    text-align: center;
+    width: 100%;
 }
 
 .greeting p2{
     padding-top: 20px;
     font-weight: lighter;
+    text-align: center;
+}
+
+/* Mobile responsiveness improvements */
+@media screen and (max-width: 768px) {
+    /* Dashboard structure */
+    main {
+        padding: 15px;
+    }
+    
+    .greeting {
+        padding: 20px 15px;
+    }
+    
+    /* Story form */
+    #story-form {
+        width: 100%;
+    }
+    
+    #story-input {
+        height: 150px;
+    }
+    
+    /* Results display */
+    .results-container {
+        flex-direction: column;
+    }
+    
+    .results, .weekly-review {
+        width: 100%;
+    }
+    
+    /* Weekly mood visualization */
+    .mood-distribution {
+        flex-direction: column;
+    }
+    
+    .day-mood {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+    
+    /* Navbar adaptations */
+    .user-actions {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .reward-btn, .signout-btn {
+        width: 100%;
+        text-align: center;
+    }
+}
+
+/* Small phone screens */
+@media screen and (max-width: 480px) {
+    main {
+        margin: 10px;
+        padding: 15px;
+        border-radius: var(--border-radius-md);
+    }
+    
+    .greeting h2 {
+        font-size: 1.5rem;
+        margin-top: 10px;
+    }
+    
+    .greeting p, .greeting p2 {
+        font-size: 0.9rem;
+    }
+    
+    #story-form textarea {
+        height: 120px;
+        padding: 10px;
+        font-size: 14px;
+    }
+    
+    #story-form button {
+        padding: 10px 20px;
+        font-size: 14px;
+        width: 100%;
+    }
+    
+    #mood-display, #feedback-display {
+        font-size: 14px;
+        padding: 12px;
+        margin: 10px 0;
+    }
+    
+    /* Weekly mood review improvements for small screens */
+    .mood-label {
+        width: 70px;
+        font-size: 13px;
+    }
+    
+    .mood-percentage {
+        width: 30px;
+        font-size: 13px;
+    }
+    
+    /* Fix weekly days display */
+    .daily-moods {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+    }
+    
+    .day-mood {
+        width: 100%;
+    }
+    
+    /* Improve weekly review container spacing */
+    .weekly-review-container {
+        padding: 15px 10px;
+    }
+    
+    /* Better styling for mood summary on mobile */
+    .mood-summary {
+        flex-direction: column;
+        gap: 8px;
+        align-items: flex-start;
+    }
+    
+    .mood-summary-item {
+        width: 100%;
+        font-size: 14px;
+    }
+    
+    /* Improve bar charts on small screens */
+    .mood-bar {
+        margin-bottom: 8px;
+    }
+    
+    .mood-progress {
+        margin: 0 6px;
+        height: 10px;
+    }
+    
+    /* Fix tiny mood circle display */
+    .mood-circle {
+        width: 16px;
+        height: 16px;
+    }
+    
+    .day-mood-value {
+        font-size: 0.75rem;
+    }
+    
+    .day-mood-count {
+        font-size: 0.65rem;
+    }
+    
+    .review-insights {
+        padding: 10px;
+        font-size: 13px;
+    }
+    
+    /* Adjust headings in weekly review */
+    .weekly-review-container h4 {
+        font-size: 15px;
+        margin: 10px 0;
+    }
+    
+    /* Adjust results section spacing */
+    .results-section {
+        padding: 15px 10px;
+        margin-top: 15px;
+    }
+    
+    .results-section h3 {
+        font-size: 16px;
+        margin-bottom: 10px;
+    }
 }

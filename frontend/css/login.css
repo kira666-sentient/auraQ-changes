@@ -86,27 +86,116 @@
     font-size: 1rem;
 }
 
+/* Error and Success Messages */
+.form-error, .form-success {
+    padding: 6px 0;
+    font-size: 14px;
+    color: #ff4d4d;
+    transition: all 0.3s ease;
+    /* Start hidden */
+    opacity: 0;
+    visibility: hidden;
+    height: 0;
+    margin-top: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+.form-error.is-active, .form-success.is-active {
+    /* Visible state */
+    display: block;
+    visibility: visible;
+    opacity: 1;
+    height: auto;
+    margin-top: 5px;
+    padding: 5px 0;
+    border-radius: 4px;
+}
+
+/* Keep success message color distinct */
+.form-success {
+    color: #4CAF50;
+}
+
+/* Input validation styling */
+.input-group input.error {
+    border-color: #ff4d4d;
+    box-shadow: 0 0 0 1px rgba(255, 77, 77, 0.2);
+}
+
+.input-group input.success {
+    border-color: #4CAF50;
+    box-shadow: 0 0 0 1px rgba(76, 175, 80, 0.2);
+}
+
+/* Placeholder text styling */
+::placeholder {
+    color: #aaa;
+    opacity: 0.7;
+}
+
+/* Form input focus state */
+.input-group input:focus {
+    border-color: #9b51e0;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(155, 81, 224, 0.2);
+}
+
+/* Remember me and Forgot Password layout */
+.auth-options-container {
+    display: flex;
+    justify-content: space-between; /* Push items to opposite ends */
+    align-items: center;
+    width: 100%; /* Ensure full width */
+    margin: 15px 0 25px; /* Good vertical spacing */
+}
+
+/* Remember me checkbox */
+.remember-me {
+    display: flex;
+    align-items: center;
+}
+
+.remember-me input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin-right: 8px;
+    accent-color: #9b51e0;
+    cursor: pointer;
+}
+
+.remember-me label {
+    font-size: 14px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
 /* Forgot Password Link */
 .forgot-password {
     font-size: 14px;
-    display: block;
     font-weight: 400;
-    margin-bottom: 15px;
-    margin-top: -8px;
     color: #fff;
+    text-align: right;
+    text-decoration: none; /* Remove underline */
+}
+
+.forgot-password:hover {
+    text-decoration: underline; /* Add underline on hover */
 }
 
 /* Login Button */
 .loginpg-btn {
     width: 100%;
-    padding: 12px;
+    padding: 14px; /* Increased from 12px for better clickability */
     background: #9b51e0;
     color: #fff;
     border: none;
     border-radius: 8px;
     font-size: 1rem;
+    font-weight: 500; /* Added font weight */
     cursor: pointer;
-    margin-bottom: 20px;
+    margin-top: 10px;
+    margin-bottom: 25px; /* Increased from 20px */
     transition: background 0.3s ease;
 }
 
@@ -174,9 +263,11 @@
     }
 }
 
+/* Password container styling for consistent eye icon placement */
 .password-container {
     position: relative;
     width: 100%;
+    margin-bottom: 16px; /* Increase bottom margin to accommodate error message */
 }
 
 .password-container input {
@@ -185,20 +276,117 @@
     padding-right: 40px; /* Space for the icon */
     font-size: 16px;
     border: 1px solid #ccc;
-    border-radius: 5px;
+    border-radius: 8px;
     box-sizing: border-box;
 }
 
-.password-container .eye-icon {
+/* Fixed eye icon positioning with absolute position relative to input height */
+.password-container #togglePassword.eye-icon {
     position: absolute;
     right: 12px;
-    top: 50%;
-    width: 22px;
-    height: 22px;
+    /* Position calculated to align with input field only */
+    top: 36px; /* Fixed position: label (21px) + label margin (5px) + input padding-top (10px) */
+    width: 24px;
+    height: 24px;
     cursor: pointer;
-    opacity: 0.7;
+    opacity: 0.8;
+    z-index: 10;
+    background: transparent;
+    pointer-events: auto;
+    transition: opacity 0.2s ease;
 }
 
 .password-container .eye-icon:hover {
     opacity: 1;
+}
+
+/* Mobile responsiveness */
+@media screen and (max-width: 768px) {
+    .login-container {
+        flex-direction: column;
+        height: auto;
+        padding: 20px;
+        gap: 30px;
+    }
+    
+    .login-left {
+        width: 100%;
+        max-width: 100%;
+        padding: 20px 15px;
+    }
+    
+    .login-left img {
+        width: 100%;
+        max-width: 280px;
+        margin: 0 auto 16px;
+    }
+    
+    .login-left h2 {
+        font-size: 2.2rem;
+    }
+    
+    .login-right {
+        width: 100%;
+        max-width: 100%;
+        padding: 25px 20px;
+    }
+    
+    .input-group {
+        width: 100%;
+    }
+    
+    .loginpg-btn {
+        width: 100%;
+    }
+    
+    .social-login {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .auth-options-container {
+        flex-direction: column;
+        gap: 15px;
+        align-items: flex-start;
+    }
+    
+    .forgot-password {
+        margin-left: 5px;
+    }
+}
+
+/* Button with loading spinner */
+.btn-with-spinner {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Spinner hidden by default */
+.loading-spinner {
+    display: none;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s linear infinite;
+    position: absolute;
+    right: 20px; /* Position to the right side of button text */
+}
+
+/* Button in loading state */
+.loginpg-btn.loading .spinner-text {
+    opacity: 0.7;
+}
+
+.loginpg-btn.loading .loading-spinner {
+    display: block;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
 }
