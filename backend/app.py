@@ -11,6 +11,8 @@ import traceback
 from dotenv import load_dotenv
 from flask_pymongo import PyMongo
 from bson.objectid import ObjectId
+import time
+import pymongo
 
 # Load environment variables from .env file
 load_dotenv()
@@ -39,25 +41,63 @@ if "VERCEL" in os.environ:
     logger.info("Running in Vercel environment - setting instance_path to /tmp")
     app.instance_path = "/tmp"  # Use /tmp which is writable in Vercel
 
-# MongoDB Configuration
+# MongoDB Configuration with retry logic
 mongo_uri = os.environ.get("MONGODB_URI")
 
 if not mongo_uri:
     logger.warning("MONGODB_URI not found - using a default URI that will likely fail")
     mongo_uri = "mongodb://localhost:27017/auraQ"
 
-try:
-    app.config["MONGO_URI"] = mongo_uri
-    mongo = PyMongo(app)
-    db = mongo.db
-    logger.info("MongoDB connection initialized successfully")
+# Initialize db as None first
+db = None
+mongo = None
+
+# Function to establish MongoDB connection with retries
+def initialize_mongodb_connection(max_retries=3, retry_delay=2):
+    global mongo, db
+    retry_count = 0
+    last_error = None
     
-    # Test MongoDB connection
-    db.command("ping")
-    logger.info("MongoDB connection test successful")
-except Exception as e:
-    logger.error(f"MongoDB connection error: {str(e)}")
+    while retry_count < max_retries:
+        try:
+            logger.info(f"Attempting MongoDB connection (attempt {retry_count+1}/{max_retries})")
+            app.config["MONGO_URI"] = mongo_uri
+            
+            # Set MongoDB connection options with timeouts
+            app.config["MONGO_OPTIONS"] = {
+                "serverSelectionTimeoutMS": 5000,  # 5 seconds
+                "connectTimeoutMS": 5000,
+                "socketTimeoutMS": 10000
+            }
+            
+            mongo = PyMongo(app)
+            db = mongo.db
+            
+            # Test MongoDB connection
+            db.command("ping")
+            logger.info("MongoDB connection established and tested successfully")
+            return True
+            
+        except Exception as e:
+            retry_count += 1
+            last_error = str(e)
+            logger.warning(f"MongoDB connection attempt {retry_count} failed: {str(e)}")
+            
+            if retry_count < max_retries:
+                logger.info(f"Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+                retry_delay *= 2  # Exponential backoff
+    
+    logger.error(f"All MongoDB connection attempts failed. Last error: {last_error}")
     logger.error(traceback.format_exc())
+    return False
+
+# Try to establish MongoDB connection
+mongodb_connected = initialize_mongodb_connection()
+
+if not mongodb_connected:
+    logger.warning("MongoDB connection failed. App will run with limited functionality.")
+    # In Vercel we'll continue even with failed MongoDB to allow diagnosis
 
 # Set up CORS for all routes with appropriate origins
 FRONTEND_ORIGINS = [
@@ -121,6 +161,19 @@ def handle_generic_exception(e):
     logger.error(traceback.format_exc())
     return jsonify({"error": "Internal server error"}), 500
 
+# Helper function to check if MongoDB is available
+def check_db_connection():
+    if db is None:
+        raise ApiError("Database connection not established", 503)
+    
+    try:
+        # Quick ping to check connection
+        db.command("ping")
+        return True
+    except Exception as e:
+        logger.error(f"Database connection error: {str(e)}")
+        raise ApiError("Database connection error", 503)
+
 # Helper function to serialize MongoDB ObjectId
 def serialize_objectid(obj_id):
     if isinstance(obj_id, ObjectId):
@@ -131,6 +184,9 @@ def serialize_objectid(obj_id):
 @app.route("/auth/register", methods=["POST"])
 def register():
     try:
+        # Check MongoDB connection first
+        check_db_connection()
+        
         data = request.get_json()
         
         # Log attempt with username but no other sensitive data
@@ -180,16 +236,25 @@ def register():
     except ApiError as e:
         # ApiError is already logged and will be handled by the errorhandler
         raise
+    except pymongo.errors.ServerSelectionTimeoutError as e:
+        logger.error(f"MongoDB server selection timeout: {str(e)}")
+        return jsonify({"error": "Database connection error", "details": str(e)}), 503
+    except pymongo.errors.ConnectionFailure as e:
+        logger.error(f"MongoDB connection failure: {str(e)}")
+        return jsonify({"error": "Database connection error", "details": str(e)}), 503
     except Exception as e:
         # Unexpected errors
         logger.error(f"Unexpected error in user registration: {str(e)}")
         logger.error(traceback.format_exc())
-        return jsonify({"error": "Internal Server Error"}), 500
+        return jsonify({"error": "Internal Server Error", "details": str(e)}), 500
 
 # Endpoint for user login
 @app.route("/auth/login", methods=["POST"])
 def login():
     try:
+        # Check MongoDB connection first
+        check_db_connection()
+        
         data = request.get_json()
         
         logger.info(f"Login attempt for username: {data.get('username', 'unknown')}")
@@ -231,16 +296,25 @@ def login():
     except ApiError:
         # Let the global handler take care of this
         raise
+    except pymongo.errors.ServerSelectionTimeoutError as e:
+        logger.error(f"MongoDB server selection timeout: {str(e)}")
+        return jsonify({"error": "Database connection error", "details": str(e)}), 503
+    except pymongo.errors.ConnectionFailure as e:
+        logger.error(f"MongoDB connection failure: {str(e)}")
+        return jsonify({"error": "Database connection error", "details": str(e)}), 503
     except Exception as e:
         logger.error(f"Unexpected error during login: {str(e)}")
         logger.error(traceback.format_exc())
-        return jsonify({"error": "Internal Server Error"}), 500
+        return jsonify({"error": "Internal Server Error", "details": str(e)}), 500
 
 # Replace print debugging with logger calls
 @app.route("/analyze", methods=["POST"])
 @jwt_required()  # Enable JWT requirement for authentication
 def analyze():
     try:
+        # Check MongoDB connection first
+        check_db_connection()
+        
         # Get current user from JWT token
         username = get_jwt_identity()
         user = db.users.find_one({"username": username})
@@ -281,14 +355,27 @@ def analyze():
         
         return jsonify(mood_feedback)  # Return the mood and feedback to the client
 
+    except ApiError as e:
+        # Let the global handler take care of this
+        raise
+    except pymongo.errors.ServerSelectionTimeoutError as e:
+        logger.error(f"MongoDB server selection timeout: {str(e)}")
+        return jsonify({"error": "Database connection error", "details": str(e)}), 503
+    except pymongo.errors.ConnectionFailure as e:
+        logger.error(f"MongoDB connection failure: {str(e)}")
+        return jsonify({"error": "Database connection error", "details": str(e)}), 503
     except Exception as e:
         logger.error(f"Error in analyze endpoint: {str(e)}")  # Use logger instead of print
-        return jsonify({"error": "Internal Server Error"}), 500
+        logger.error(traceback.format_exc())
+        return jsonify({"error": "Internal Server Error", "details": str(e)}), 500
 
 @app.route("/user/history", methods=["GET"])
 @jwt_required()  # Require authentication
 def user_history():
     try:
+        # Check MongoDB connection first
+        check_db_connection()
+        
         # Get current user from JWT token
         username = get_jwt_identity()
         user = db.users.find_one({"username": username})
@@ -322,14 +409,26 @@ def user_history():
         
         return jsonify({"history": history})
         
+    except ApiError as e:
+        # Let the global handler take care of this
+        raise
+    except pymongo.errors.ServerSelectionTimeoutError as e:
+        logger.error(f"MongoDB server selection timeout: {str(e)}")
+        return jsonify({"error": "Database connection error", "details": str(e)}), 503
+    except pymongo.errors.ConnectionFailure as e:
+        logger.error(f"MongoDB connection failure: {str(e)}")
+        return jsonify({"error": "Database connection error", "details": str(e)}), 503
     except Exception as e:
         logger.error(f"Error in user_history endpoint: {str(e)}")  # Replace print with logger
-        return jsonify({"error": "Internal Server Error"}), 500
+        return jsonify({"error": "Internal Server Error", "details": str(e)}), 500
 
 @app.route("/user/statistics", methods=["GET"])
 @jwt_required()
 def user_statistics():
     try:
+        # Check MongoDB connection first
+        check_db_connection()
+        
         # Get current user from JWT token
         username = get_jwt_identity()
         user = db.users.find_one({"username": username})
@@ -358,14 +457,26 @@ def user_statistics():
             "recent_moods": recent_moods
         })
         
+    except ApiError as e:
+        # Let the global handler take care of this
+        raise
+    except pymongo.errors.ServerSelectionTimeoutError as e:
+        logger.error(f"MongoDB server selection timeout: {str(e)}")
+        return jsonify({"error": "Database connection error", "details": str(e)}), 503
+    except pymongo.errors.ConnectionFailure as e:
+        logger.error(f"MongoDB connection failure: {str(e)}")
+        return jsonify({"error": "Database connection error", "details": str(e)}), 503
     except Exception as e:
         logger.error(f"Error in user_statistics endpoint: {str(e)}")
-        return jsonify({"error": "Internal Server Error"}), 500
+        return jsonify({"error": "Internal Server Error", "details": str(e)}), 500
 
 @app.route("/user/history/<entry_id>", methods=["DELETE"])
 @jwt_required()
 def delete_history_entry(entry_id):
     try:
+        # Check MongoDB connection first
+        check_db_connection()
+        
         # Get current user from JWT token
         username = get_jwt_identity()
         user = db.users.find_one({"username": username})
@@ -390,14 +501,26 @@ def delete_history_entry(entry_id):
         
         return jsonify({"message": "Entry deleted successfully"}), 200
         
+    except ApiError as e:
+        # Let the global handler take care of this
+        raise
+    except pymongo.errors.ServerSelectionTimeoutError as e:
+        logger.error(f"MongoDB server selection timeout: {str(e)}")
+        return jsonify({"error": "Database connection error", "details": str(e)}), 503
+    except pymongo.errors.ConnectionFailure as e:
+        logger.error(f"MongoDB connection failure: {str(e)}")
+        return jsonify({"error": "Database connection error", "details": str(e)}), 503
     except Exception as e:
         logger.error(f"Error in delete_history_entry endpoint: {str(e)}")
-        return jsonify({"error": "Internal Server Error"}), 500
+        return jsonify({"error": "Internal Server Error", "details": str(e)}), 500
 
 @app.route("/user/history", methods=["DELETE"])
 @jwt_required()
 def clear_history():
     try:
+        # Check MongoDB connection first
+        check_db_connection()
+        
         # Get current user from JWT token
         username = get_jwt_identity()
         user = db.users.find_one({"username": username})
@@ -413,9 +536,18 @@ def clear_history():
             "count": result.deleted_count
         }), 200
         
+    except ApiError as e:
+        # Let the global handler take care of this
+        raise
+    except pymongo.errors.ServerSelectionTimeoutError as e:
+        logger.error(f"MongoDB server selection timeout: {str(e)}")
+        return jsonify({"error": "Database connection error", "details": str(e)}), 503
+    except pymongo.errors.ConnectionFailure as e:
+        logger.error(f"MongoDB connection failure: {str(e)}")
+        return jsonify({"error": "Database connection error", "details": str(e)}), 503
     except Exception as e:
         logger.error(f"Error in clear_history endpoint: {str(e)}")
-        return jsonify({"error": "Internal Server Error"}), 500
+        return jsonify({"error": "Internal Server Error", "details": str(e)}), 500
 
 # Add a health check endpoint for Vercel
 @app.route("/health", methods=["GET"])
@@ -434,8 +566,11 @@ def health_check():
     try:
         # Use a lightweight query to check MongoDB connection
         try:
-            db.command("ping")
-            response["services"]["database"] = "Connected"
+            if db is not None:
+                db.command("ping")
+                response["services"]["database"] = "Connected"
+            else:
+                response["services"]["database"] = "Not initialized"
         except Exception as e:
             response["services"]["database"] = f"Error: {str(e)[:100]}..."
     except Exception as e:
@@ -448,6 +583,9 @@ def health_check():
 @jwt_required()
 def get_rewards():
     try:
+        # Check MongoDB connection first
+        check_db_connection()
+        
         username = get_jwt_identity()
         user = db.users.find_one({"username": username})
         
@@ -476,14 +614,26 @@ def get_rewards():
             "rewards": user.get("rewards", 0),
             "daily_count": user.get("daily_count", 0)
         }), 200
+    except ApiError as e:
+        # Let the global handler take care of this
+        raise
+    except pymongo.errors.ServerSelectionTimeoutError as e:
+        logger.error(f"MongoDB server selection timeout: {str(e)}")
+        return jsonify({"error": "Database connection error", "details": str(e)}), 503
+    except pymongo.errors.ConnectionFailure as e:
+        logger.error(f"MongoDB connection failure: {str(e)}")
+        return jsonify({"error": "Database connection error", "details": str(e)}), 503
     except Exception as e:
         logger.error(f"Error in get_rewards endpoint: {str(e)}")
-        return jsonify({"error": "Failed to get user rewards"}), 500
+        return jsonify({"error": "Failed to get user rewards", "details": str(e)}), 500
 
 @app.route("/user/rewards", methods=["PUT"])
 @jwt_required()
 def update_rewards():
     try:
+        # Check MongoDB connection first
+        check_db_connection()
+        
         username = get_jwt_identity()
         user = db.users.find_one({"username": username})
         
@@ -513,14 +663,26 @@ def update_rewards():
             "rewards": new_rewards
         }), 200
             
+    except ApiError as e:
+        # Let the global handler take care of this
+        raise
+    except pymongo.errors.ServerSelectionTimeoutError as e:
+        logger.error(f"MongoDB server selection timeout: {str(e)}")
+        return jsonify({"error": "Database connection error", "details": str(e)}), 503
+    except pymongo.errors.ConnectionFailure as e:
+        logger.error(f"MongoDB connection failure: {str(e)}")
+        return jsonify({"error": "Database connection error", "details": str(e)}), 503
     except Exception as e:
         logger.error(f"Error in update_rewards endpoint: {str(e)}")
-        return jsonify({"error": "Internal Server Error"}), 500
+        return jsonify({"error": "Internal Server Error", "details": str(e)}), 500
 
 @app.route("/user/daily-count", methods=["POST"])
 @jwt_required()
 def increment_daily_count():
     try:
+        # Check MongoDB connection first
+        check_db_connection()
+        
         username = get_jwt_identity()
         user = db.users.find_one({"username": username})
         
@@ -556,15 +718,27 @@ def increment_daily_count():
             "message": "Daily count incremented",
             "daily_count": daily_count
         }), 200
+    except ApiError as e:
+        # Let the global handler take care of this
+        raise
+    except pymongo.errors.ServerSelectionTimeoutError as e:
+        logger.error(f"MongoDB server selection timeout: {str(e)}")
+        return jsonify({"error": "Database connection error", "details": str(e)}), 503
+    except pymongo.errors.ConnectionFailure as e:
+        logger.error(f"MongoDB connection failure: {str(e)}")
+        return jsonify({"error": "Database connection error", "details": str(e)}), 503
     except Exception as e:
         logger.error(f"Error in increment_daily_count endpoint: {str(e)}")
-        return jsonify({"error": "Failed to increment daily count"}), 500
+        return jsonify({"error": "Failed to increment daily count", "details": str(e)}), 500
 
 # Weekly mood endpoints
 @app.route("/user/weekly-mood", methods=["POST"])
 @jwt_required()
 def add_weekly_mood():
     try:
+        # Check MongoDB connection first
+        check_db_connection()
+        
         username = get_jwt_identity()
         user = db.users.find_one({"username": username})
         
@@ -591,14 +765,26 @@ def add_weekly_mood():
             "id": str(result.inserted_id)
         }), 200
             
+    except ApiError as e:
+        # Let the global handler take care of this
+        raise
+    except pymongo.errors.ServerSelectionTimeoutError as e:
+        logger.error(f"MongoDB server selection timeout: {str(e)}")
+        return jsonify({"error": "Database connection error", "details": str(e)}), 503
+    except pymongo.errors.ConnectionFailure as e:
+        logger.error(f"MongoDB connection failure: {str(e)}")
+        return jsonify({"error": "Database connection error", "details": str(e)}), 503
     except Exception as e:
         logger.error(f"Error in add_weekly_mood endpoint: {str(e)}")
-        return jsonify({"error": "Internal Server Error"}), 500
+        return jsonify({"error": "Internal Server Error", "details": str(e)}), 500
 
 @app.route("/user/weekly-mood", methods=["GET"])
 @jwt_required()
 def get_weekly_mood():
     try:
+        # Check MongoDB connection first
+        check_db_connection()
+        
         username = get_jwt_identity()
         user = db.users.find_one({"username": username})
         
@@ -623,9 +809,18 @@ def get_weekly_mood():
         
         return jsonify({"weekly_data": weekly_data}), 200
         
+    except ApiError as e:
+        # Let the global handler take care of this
+        raise
+    except pymongo.errors.ServerSelectionTimeoutError as e:
+        logger.error(f"MongoDB server selection timeout: {str(e)}")
+        return jsonify({"error": "Database connection error", "details": str(e)}), 503
+    except pymongo.errors.ConnectionFailure as e:
+        logger.error(f"MongoDB connection failure: {str(e)}")
+        return jsonify({"error": "Database connection error", "details": str(e)}), 503
     except Exception as e:
         logger.error(f"Error in get_weekly_mood endpoint: {str(e)}")
-        return jsonify({"error": "Internal Server Error"}), 500
+        return jsonify({"error": "Internal Server Error", "details": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(debug=True)
