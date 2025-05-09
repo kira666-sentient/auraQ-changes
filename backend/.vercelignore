@@ -21,6 +21,8 @@ instance/
 emoDATASET/
 text.csv
 train_model.py
+emotion_model.pkl
+vectorizer.pkl
 
 # Development scripts
 setup.bat

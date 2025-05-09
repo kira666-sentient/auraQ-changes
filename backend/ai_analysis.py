@@ -62,7 +62,7 @@ try:
         # Check if needed data exists, if not, download minimal required sets
         try:
             # Minimal data required by TextBlob
-            for item in ['punkt', 'averaged_perceptron_tagger']:
+            for item in ['punkt']:
                 data_path = os.path.join(nltk_data_dir, item)
                 if not os.path.exists(data_path):
                     print(f"Downloading NLTK data: {item}")
