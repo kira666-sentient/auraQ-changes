@@ -63,8 +63,19 @@ db = None
 mongo = None
 
 # Function to establish MongoDB connection with retries
-            app.config["MONGO_OPTIONS"] = {
-                "serverSelectionTimeoutMS": 5000,  # 5 seconds
+def initialize_mongodb_connection(max_retries=3, retry_delay=2):
+    global mongo, db
+    retry_count = 0
+    last_error = None
+    
+    while retry_count < max_retries:
+        try:
+            logger.info(f"Attempting MongoDB connection (attempt {retry_count+1}/{max_retries})")
+            app.config["MONGO_URI"] = mongo_uri
+            
+            # Set MongoDB connection options with timeouts
+            app.config["MONGO_OPTIONS"] = {  # Corrected indentation for this block
+                "serverSelectionTimeoutMS": 5000,
                 "connectTimeoutMS": 5000,
                 "socketTimeoutMS": 10000
             }
