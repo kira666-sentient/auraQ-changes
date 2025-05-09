@@ -3,10 +3,16 @@
     { "source": "/", "destination": "/pages/index.html" },
     { "source": "/index.html", "destination": "/pages/index.html" },
     { "source": "/(login|signup|dashboard)", "destination": "/pages/$1.html" },
+    { "source": "/favicon.ico", "destination": "/public/favicon.ico" },
     { "source": "/assets/:path*", "destination": "/assets/:path*" },
     { "source": "/css/:path*", "destination": "/css/:path*" },
     { "source": "/js/:path*", "destination": "/js/:path*" },
     { "source": "/components/:path*", "destination": "/components/:path*" }
+  ],
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/", "dest": "/pages/index.html" },
+    { "src": "/(.*)", "status": 404, "dest": "/pages/index.html" }
   ],
   "trailingSlash": false
 }
