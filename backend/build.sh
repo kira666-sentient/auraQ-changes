@@ -4,6 +4,9 @@ echo "Starting build process for AuraQ backend"
 echo "Python version:"
 python --version
 
+echo "Installing flask_pymongo directly first"
+pip install flask_pymongo==2.3.0
+
 echo "Installing dependencies from requirements-vercel.txt"
 pip install -r requirements-vercel.txt
 
@@ -18,6 +21,6 @@ export NLTK_DATA=/tmp/nltk_data
 python -c "import nltk; nltk.download('punkt', download_dir='/tmp/nltk_data'); nltk.download('averaged_perceptron_tagger', download_dir='/tmp/nltk_data')"
 
 echo "Listing installed packages:"
-pip list
+pip list | grep -E 'flask|pymongo'
 
 echo "Build completed successfully!"
