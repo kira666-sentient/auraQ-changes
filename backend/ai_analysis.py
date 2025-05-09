@@ -22,7 +22,7 @@ if not logger.handlers:
     logger.addHandler(console_handler)
 
 # Enhanced error logging for Vercel
-print("Initializing AI Analysis module")
+print("Initializing AI Analysis module - Gemini-only version")
 
 # Try to import Gemini API with better error handling
 GEMINI_AVAILABLE = False
@@ -39,54 +39,6 @@ except Exception as e:
     logger.error(f"Unexpected error importing Gemini: {str(e)}")
     logger.error(traceback.format_exc())
 
-# Try to import TextBlob with better error handling
-TEXTBLOB_AVAILABLE = False
-try:
-    print("Attempting to import TextBlob")
-    from textblob import TextBlob
-    
-    # Handle NLTK data requirements for Vercel
-    if "VERCEL" in os.environ:
-        print("Running in Vercel environment - configuring NLTK data")
-        import nltk
-        
-        # Set NLTK data path to /tmp which is writable in Vercel
-        nltk_data_dir = "/tmp/nltk_data"
-        os.environ["NLTK_DATA"] = nltk_data_dir
-        
-        # Create directory if it doesn't exist
-        if not os.path.exists(nltk_data_dir):
-            print(f"Creating NLTK data directory at {nltk_data_dir}")
-            os.makedirs(nltk_data_dir, exist_ok=True)
-            
-        # Check if needed data exists, if not, download minimal required sets
-        try:
-            # Minimal data required by TextBlob
-            for item in ['punkt']:
-                data_path = os.path.join(nltk_data_dir, item)
-                if not os.path.exists(data_path):
-                    print(f"Downloading NLTK data: {item}")
-                    nltk.download(item, download_dir=nltk_data_dir, quiet=True)
-                    print(f"Downloaded {item} to {nltk_data_dir}")
-                else:
-                    print(f"NLTK data {item} already exists")
-        except Exception as e:
-            print(f"Error downloading NLTK data: {str(e)}")
-    
-    # Test TextBlob minimally to ensure it's working
-    test_blob = TextBlob("Test sentence")
-    _ = test_blob.sentiment  # This will trigger NLTK data loading/errors if any
-    
-    TEXTBLOB_AVAILABLE = True
-    print("✅ TextBlob successfully imported and tested")
-except ImportError as e:
-    print(f"❌ TextBlob import error: {str(e)}")
-    logger.warning(f"TextBlob module not available: {str(e)}")
-except Exception as e:
-    print(f"❌ TextBlob initialization error: {str(e)}")
-    logger.error(f"TextBlob initialization error: {str(e)}")
-    logger.error(traceback.format_exc())
-
 # Configure Gemini API if available
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 if GEMINI_AVAILABLE and GEMINI_API_KEY:
@@ -101,40 +53,6 @@ if GEMINI_AVAILABLE and GEMINI_API_KEY:
 elif GEMINI_AVAILABLE:
     print("⚠️ Gemini API key not found in environment variables")
     logger.warning("Gemini API key not found in environment variables")
-
-# Add simple non-AI backup for complete resilience
-def generate_simple_analysis(story):
-    """
-    Extremely simple mood analysis as last resort backup
-    """
-    print("Using simple keyword-based analysis (last resort)")
-    
-    # Simple keyword matching
-    positive_words = ['happy', 'good', 'great', 'excellent', 'joy', 'wonderful', 'love', 'like', 'amazing']
-    negative_words = ['sad', 'bad', 'terrible', 'awful', 'hate', 'dislike', 'angry', 'upset', 'disappointed']
-    
-    # Convert to lowercase for case-insensitive matching
-    story_lower = story.lower()
-    
-    # Count positive and negative words
-    positive_count = sum(word in story_lower for word in positive_words)
-    negative_count = sum(word in story_lower for word in negative_words)
-    
-    if positive_count > negative_count:
-        mood = "joy"
-    elif negative_count > positive_count:
-        mood = "sadness"
-    else:
-        mood = "neutral"
-    
-    # Use a template response
-    feedback = random.choice(FEEDBACK_TEMPLATES[mood])
-    
-    return {
-        "mood": mood,
-        "feedback": feedback,
-        "model_used": "simple-keyword"
-    }
 
 # Define feedback templates for each mood
 FEEDBACK_TEMPLATES = {
@@ -168,14 +86,48 @@ FEEDBACK_TEMPLATES = {
     ]
 }
 
+# Simple non-AI backup for when Gemini is unavailable
+def generate_simple_analysis(story):
+    """
+    Extremely simple mood analysis as last resort backup
+    """
+    print("Using simple keyword-based analysis (fallback)")
+    
+    # Simple keyword matching
+    positive_words = ['happy', 'good', 'great', 'excellent', 'joy', 'wonderful', 'love', 'like', 'amazing']
+    negative_words = ['sad', 'bad', 'terrible', 'awful', 'hate', 'dislike', 'angry', 'upset', 'disappointed']
+    
+    # Convert to lowercase for case-insensitive matching
+    story_lower = story.lower()
+    
+    # Count positive and negative words
+    positive_count = sum(word in story_lower for word in positive_words)
+    negative_count = sum(word in story_lower for word in negative_words)
+    
+    if positive_count > negative_count:
+        mood = "joy"
+    elif negative_count > positive_count:
+        mood = "sadness"
+    else:
+        mood = "neutral"
+    
+    # Use a template response
+    feedback = random.choice(FEEDBACK_TEMPLATES[mood])
+    
+    return {
+        "mood": mood,
+        "feedback": feedback,
+        "model_used": "simple-keyword"
+    }
+
 def analyze_mood(story):
-    """Analyze mood using available tools: Gemini API, TextBlob, or simple keyword analysis"""
+    """Analyze mood primarily using Gemini API with a simple keyword fallback"""
     
     if not story:
         logger.warning("Empty story received")
         return {"mood": "neutral", "feedback": "No story provided."}
 
-    # Try Gemini first if available
+    # Try Gemini if available
     if GEMINI_AVAILABLE and GEMINI_API_KEY:
         try:
             logger.info("Attempting Gemini analysis")
@@ -187,19 +139,8 @@ def analyze_mood(story):
             logger.error(f"Gemini API error: {str(e)}")
             logger.error(traceback.format_exc())
     
-    # If Gemini fails, try TextBlob
-    if TEXTBLOB_AVAILABLE:
-        try:
-            logger.info("Using TextBlob fallback")
-            result = analyze_with_textblob(story)
-            logger.info("Successfully analyzed with TextBlob")
-            return result
-        except Exception as e:
-            logger.error(f"TextBlob analysis failed: {str(e)}")
-            logger.error(traceback.format_exc())
-    
-    # Last resort: use simple keyword analysis
-    logger.warning("Using simple analysis as last resort")
+    # If Gemini fails, use simple keyword analysis
+    logger.warning("Using simple keyword analysis as fallback")
     return generate_simple_analysis(story)
 
 def analyze_with_gemini(story):
@@ -259,31 +200,6 @@ def analyze_with_gemini(story):
     except Exception as e:
         logger.error(f"Gemini analysis error: {str(e)}")
         return None
-
-def analyze_with_textblob(story):
-    """Simple mood analysis using TextBlob sentiment"""
-    if not TEXTBLOB_AVAILABLE:
-        return {"mood": "neutral", "feedback": random.choice(FEEDBACK_TEMPLATES["neutral"])}
-    
-    blob = TextBlob(story)
-    sentiment = blob.sentiment.polarity
-    
-    # Determine mood from sentiment
-    if sentiment > 0.3:
-        mood = "joy"
-    elif sentiment < -0.3:
-        mood = "sadness"
-    else:
-        mood = "neutral"
-    
-    # Generate feedback
-    feedback = random.choice(FEEDBACK_TEMPLATES[mood])
-    
-    return {
-        "mood": mood,
-        "feedback": feedback,
-        "model_used": "textblob"
-    }
 
 def clean_json_response(text):
     """Clean and extract JSON from the response text."""
