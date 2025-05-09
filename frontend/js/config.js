@@ -15,7 +15,7 @@ const config = {
         
         // For production
         // Replace this with your actual backend URL after deployment
-        return "https://aura-q-backend.vercel.app";
+        return "https://aura-q-backend-9urma8ec3-karan-guptas-projects-17f555cf.vercel.app";
     })(),
     
     // API endpoints
