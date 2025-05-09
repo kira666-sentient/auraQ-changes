@@ -2,7 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "wsgi.py",
+      "src": "app.py",
       "use": "@vercel/python",
       "config": {
         "maxLambdaSize": "15mb",
@@ -14,7 +14,7 @@
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "/wsgi.py"
+      "dest": "/app.py"
     }
   ],
   "env": {
@@ -24,7 +24,6 @@
     "VERCEL": "1",
     "PYTHON_VERSION": "3.12",
     "FLASK_APP": "wsgi.py",
-    "PIP_NO_CACHE_DIR": "1",
-    "MONGODB_URI": "mongodb+srv://ALLMIGHT123:539huko3i97PDahe@cluster0.g4j7ljt.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+    "PIP_NO_CACHE_DIR": "1"
   }
 }

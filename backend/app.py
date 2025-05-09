@@ -26,7 +26,7 @@ console_handler = logging.StreamHandler(sys.stdout)
 console_handler.setLevel(logging.INFO)
 
 # Create formatter
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter('%(asctime)s - %name%s - %levelname%s - %message%s')
 console_handler.setFormatter(formatter)
 
 # Add handler to the logger
@@ -42,10 +42,20 @@ if "VERCEL" in os.environ:
     app.instance_path = "/tmp"  # Use /tmp which is writable in Vercel
 
 # MongoDB Configuration with retry logic
-mongo_uri = os.environ.get("MONGODB_URI")
+db_username = os.environ.get("db_username") # Changed to lowercase
+db_password = os.environ.get("db_password") # Changed to lowercase
+mongo_uri = None
 
-if not mongo_uri:
-    logger.warning("MONGODB_URI not found - using a default URI that will likely fail")
+if db_username and db_password:
+    # For robust encoding, consider: from urllib.parse import quote_plus
+    # db_password_encoded = quote_plus(db_password)
+    mongo_uri = f"mongodb+srv://{db_username}:{db_password}@cluster0.g4j7ljt.mongodb.net/auraQ?retryWrites=true&w=majority&appName=Cluster0"
+    logger.info("MONGODB_URI constructed from db_username and db_password environment variables.")
+elif os.environ.get("MONGODB_URI"): # Fallback to MONGODB_URI if explicitly set
+    mongo_uri = os.environ.get("MONGODB_URI")
+    logger.info("Using MONGODB_URI environment variable as db_username/db_password were not found.")
+else:
+    logger.warning("Neither db_username/db_password nor MONGODB_URI environment variables were found. Using a default local URI that will likely fail in production.")
     mongo_uri = "mongodb://localhost:27017/auraQ"
 
 # Initialize db as None first
@@ -53,17 +63,6 @@ db = None
 mongo = None
 
 # Function to establish MongoDB connection with retries
-def initialize_mongodb_connection(max_retries=3, retry_delay=2):
-    global mongo, db
-    retry_count = 0
-    last_error = None
-    
-    while retry_count < max_retries:
-        try:
-            logger.info(f"Attempting MongoDB connection (attempt {retry_count+1}/{max_retries})")
-            app.config["MONGO_URI"] = mongo_uri
-            
-            # Set MongoDB connection options with timeouts
             app.config["MONGO_OPTIONS"] = {
                 "serverSelectionTimeoutMS": 5000,  # 5 seconds
                 "connectTimeoutMS": 5000,
