@@ -1,17 +1,21 @@
 {
   "version": 2,
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://aura-q-backend-9urma8ec3-karan-guptas-projects-17f555cf.vercel.app/api/$1" },
-    { "source": "/login", "destination": "/pages/login.html" },
-    { "source": "/signup", "destination": "/pages/signup.html" },
-    { "source": "/dashboard", "destination": "/pages/dashboard.html" },
-    { "source": "/", "destination": "/pages/index.html" },
-    { "source": "/index", "destination": "/pages/index.html" },
-    { "source": "/favicon.ico", "destination": "/public/favicon.ico" },
-    { "source": "/assets/:path*", "destination": "/assets/:path*" },
-    { "source": "/css/:path*", "destination": "/css/:path*" },
-    { "source": "/js/:path*", "destination": "/js/:path*" },
-    { "source": "/components/:path*", "destination": "/components/:path*" }
+  "outputDirectory": ".",
+  "builds": [
+    { "src": "pages/**/*", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "https://aura-q-backend-9urma8ec3-karan-guptas-projects-17f555cf.vercel.app/api/$1" },
+    { "src": "/login", "dest": "/pages/login.html" },
+    { "src": "/signup", "dest": "/pages/signup.html" },
+    { "src": "/dashboard", "dest": "/pages/dashboard.html" },
+    { "src": "^/$", "dest": "/pages/index.html" },
+    { "src": "/index", "dest": "/pages/index.html" },
+    { "src": "/favicon.ico", "dest": "/public/favicon.ico" },
+    { "src": "/assets/(.*)", "dest": "/assets/$1" },
+    { "src": "/css/(.*)", "dest": "/css/$1" },
+    { "src": "/js/(.*)", "dest": "/js/$1" },
+    { "src": "/components/(.*)", "dest": "/components/$1" }
   ],
   "headers": [
     {
