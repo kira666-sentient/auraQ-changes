@@ -8,49 +8,56 @@ import os
 import sys
 import logging
 import traceback
-from logging.handlers import RotatingFileHandler
 from dotenv import load_dotenv
+from flask_pymongo import PyMongo
+from bson.objectid import ObjectId
 
 # Load environment variables from .env file
 load_dotenv()
 
-# Import SQLAlchemy models
-from models import db, User, MoodEntry, WeeklyMood
-
-# Set up logging
-log_dir = os.path.join(os.path.dirname(__file__), "logs")
-if not os.path.exists(log_dir):
-    os.makedirs(log_dir)
-
-# Configure logger
+# Configure logger for Vercel environment (console only)
 logger = logging.getLogger("aura_q")
 logger.setLevel(logging.INFO)
 
-# Create handlers
-log_file = os.path.join(log_dir, "aura_q.log")
-file_handler = RotatingFileHandler(log_file, maxBytes=1024*1024*5, backupCount=5, encoding='utf-8')  # 5MB per file, keep 5 backups
+# Create console handler for Vercel
 console_handler = logging.StreamHandler(sys.stdout)
 console_handler.setLevel(logging.INFO)
 
-# Create formatters
+# Create formatter
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-file_handler.setFormatter(formatter)
 console_handler.setFormatter(formatter)
 
-# Add handlers to the logger
-logger.addHandler(file_handler)
+# Add handler to the logger
 logger.addHandler(console_handler)
 
 # Initialize app
 app = Flask(__name__)
 logger.info("Starting AuraQ backend application")
 
-# Database configuration
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///aura_detector.db")
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+# Configure Flask to avoid trying to write to the filesystem on Vercel
+if "VERCEL" in os.environ:
+    logger.info("Running in Vercel environment - setting instance_path to /tmp")
+    app.instance_path = "/tmp"  # Use /tmp which is writable in Vercel
 
-# Initialize database
-db.init_app(app)
+# MongoDB Configuration
+mongo_uri = os.environ.get("MONGODB_URI")
+
+if not mongo_uri:
+    logger.warning("MONGODB_URI not found - using a default URI that will likely fail")
+    mongo_uri = "mongodb://localhost:27017/auraQ"
+
+try:
+    app.config["MONGO_URI"] = mongo_uri
+    mongo = PyMongo(app)
+    db = mongo.db
+    logger.info("MongoDB connection initialized successfully")
+    
+    # Test MongoDB connection
+    db.command("ping")
+    logger.info("MongoDB connection test successful")
+except Exception as e:
+    logger.error(f"MongoDB connection error: {str(e)}")
+    logger.error(traceback.format_exc())
 
 # Set up CORS for all routes with appropriate origins
 FRONTEND_ORIGINS = [
@@ -87,11 +94,6 @@ if app.config["JWT_SECRET_KEY"] == "supersecretkey":
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=24)  # 24 hours - using timedelta for Flask 2.3.x
 jwt = JWTManager(app)
 
-# Create database tables at startup
-with app.app_context():
-    db.create_all()  # This replaces the deprecated @app.before_first_request decorator
-    logger.info("Database tables created or verified")
-
 # Custom error handler class
 class ApiError(Exception):
     """Base class for API errors with status code and message"""
@@ -119,6 +121,12 @@ def handle_generic_exception(e):
     logger.error(traceback.format_exc())
     return jsonify({"error": "Internal server error"}), 500
 
+# Helper function to serialize MongoDB ObjectId
+def serialize_objectid(obj_id):
+    if isinstance(obj_id, ObjectId):
+        return str(obj_id)
+    return obj_id
+
 # Endpoint for user registration
 @app.route("/auth/register", methods=["POST"])
 def register():
@@ -133,32 +141,40 @@ def register():
             raise ApiError("Missing required fields", 400)
         
         # Check if username or email already exists
-        if User.query.filter_by(username=data["username"]).first():
+        if db.users.find_one({"username": data["username"]}):
             logger.info(f"Registration failed: username {data['username']} already exists")
             raise ApiError("Username already exists", 409)
         
-        if User.query.filter_by(email=data["email"]).first():
+        if db.users.find_one({"email": data["email"]}):
             logger.info(f"Registration failed: email {data['email']} already exists")
             raise ApiError("Email already exists", 409)
         
-        # Create new user
-        new_user = User(
-            username=data["username"],
-            email=data["email"],
-            password=data["password"]
-        )
+        # Hash password
+        hashed_password = bcrypt.generate_password_hash(data["password"]).decode('utf-8')
         
-        db.session.add(new_user)
-        db.session.commit()
+        # Create new user
+        new_user = {
+            "username": data["username"],
+            "email": data["email"],
+            "password": hashed_password,
+            "created_at": datetime.utcnow(),
+            "last_login": None,
+            "login_count": 0,
+            "rewards": 5,
+            "daily_count": 0,
+            "last_reset_date": datetime.now().strftime("%Y-%m-%d")
+        }
+        
+        result = db.users.insert_one(new_user)
         logger.info(f"User {data['username']} registered successfully")
         
         # Generate access token
-        access_token = create_access_token(identity=new_user.username)
+        access_token = create_access_token(identity=new_user["username"])
         
         return jsonify({
             "message": "User registered successfully",
             "token": access_token,
-            "username": new_user.username
+            "username": new_user["username"]
         }), 201
         
     except ApiError as e:
@@ -183,28 +199,33 @@ def login():
             raise ApiError("Missing required fields", 400)
         
         # Find user by username
-        user = User.query.filter_by(username=data["username"]).first()
+        user = db.users.find_one({"username": data["username"]})
         
         # Verify user and password
-        if not user or not user.check_password(data["password"]):
+        if not user or not bcrypt.check_password_hash(user["password"], data["password"]):
             logger.warning(f"Failed login attempt for username: {data.get('username', 'unknown')}")
             # Use same error message to prevent username enumeration
             raise ApiError("Invalid username or password", 401)
         
         # Update user's last login timestamp
-        user.last_login = datetime.utcnow()
-        user.login_count = (user.login_count or 0) + 1
-        db.session.commit()
+        current_time = datetime.utcnow()
+        db.users.update_one(
+            {"_id": user["_id"]},
+            {
+                "$set": {"last_login": current_time},
+                "$inc": {"login_count": 1}
+            }
+        )
         
-        logger.info(f"Successful login for user: {user.username}")
+        logger.info(f"Successful login for user: {user['username']}")
         
         # Generate access token
-        access_token = create_access_token(identity=user.username)
+        access_token = create_access_token(identity=user["username"])
         
         return jsonify({
             "message": "Login successful",
             "token": access_token,
-            "username": user.username
+            "username": user["username"]
         }), 200
         
     except ApiError:
@@ -222,7 +243,7 @@ def analyze():
     try:
         # Get current user from JWT token
         username = get_jwt_identity()
-        user = User.query.filter_by(username=username).first()
+        user = db.users.find_one({"username": username})
         
         if not user:
             return jsonify({"error": "User not found"}), 404
@@ -246,17 +267,17 @@ def analyze():
             return jsonify({"error": "Failed to analyze mood"}), 500
             
         # Store only the mood (not the story or feedback)
-        new_entry = MoodEntry(
-            user_id=user.id,
-            mood=mood_feedback["mood"]
-        )
+        new_entry = {
+            "user_id": user["_id"],
+            "mood": mood_feedback["mood"],
+            "timestamp": datetime.utcnow()
+        }
         
         # Add to database
-        db.session.add(new_entry)
-        db.session.commit()
+        result = db.mood_entries.insert_one(new_entry)
         
         # Include the entry ID in the response
-        mood_feedback["id"] = new_entry.id
+        mood_feedback["id"] = str(result.inserted_id)
         
         return jsonify(mood_feedback)  # Return the mood and feedback to the client
 
@@ -270,7 +291,7 @@ def user_history():
     try:
         # Get current user from JWT token
         username = get_jwt_identity()
-        user = User.query.filter_by(username=username).first()
+        user = db.users.find_one({"username": username})
         
         if not user:
             return jsonify({"error": "User not found"}), 404
@@ -280,23 +301,24 @@ def user_history():
         sort = request.args.get("sort", default="desc", type=str)
         
         # Query mood entries
-        query = MoodEntry.query.filter_by(user_id=user.id)
+        sort_direction = -1 if sort.lower() == "desc" else 1
+        query = {"user_id": user["_id"]}
         
-        # Apply sorting
-        if sort.lower() == "asc":
-            query = query.order_by(MoodEntry.timestamp.asc())
-        else:
-            query = query.order_by(MoodEntry.timestamp.desc())
+        # Apply sorting and limit
+        cursor = db.mood_entries.find(query).sort("timestamp", sort_direction)
         
         # Apply limit if specified
         if limit is not None and isinstance(limit, int) and limit > 0:
-            query = query.limit(limit)
+            cursor = cursor.limit(limit)
         
-        # Get entries
-        entries = query.all()
-        
-        # Convert to dict
-        history = [entry.to_dict() for entry in entries]
+        # Get entries and transform to dict format
+        history = []
+        for entry in cursor:
+            history.append({
+                "id": str(entry["_id"]),
+                "mood": entry["mood"],
+                "timestamp": entry["timestamp"].isoformat() if isinstance(entry["timestamp"], datetime) else entry["timestamp"]
+            })
         
         return jsonify({"history": history})
         
@@ -310,23 +332,25 @@ def user_statistics():
     try:
         # Get current user from JWT token
         username = get_jwt_identity()
-        user = User.query.filter_by(username=username).first()
+        user = db.users.find_one({"username": username})
         
         if not user:
             return jsonify({"error": "User not found"}), 404
         
         # Get all mood entries for this user
-        entries = MoodEntry.query.filter_by(user_id=user.id).all()
+        entries = list(db.mood_entries.find({"user_id": user["_id"]}))
         
         # Count occurrences of each mood
         mood_counts = {}
         for entry in entries:
-            mood = entry.mood
+            mood = entry["mood"]
             mood_counts[mood] = mood_counts.get(mood, 0) + 1
         
         # Get recent entries
-        recent_entries = MoodEntry.query.filter_by(user_id=user.id).order_by(MoodEntry.timestamp.desc()).limit(5).all()
-        recent_moods = [entry.mood for entry in recent_entries]
+        recent_entries = list(db.mood_entries.find({"user_id": user["_id"]})
+                            .sort("timestamp", -1)
+                            .limit(5))
+        recent_moods = [entry["mood"] for entry in recent_entries]
         
         return jsonify({
             "total_entries": len(entries),
@@ -338,26 +362,31 @@ def user_statistics():
         logger.error(f"Error in user_statistics endpoint: {str(e)}")
         return jsonify({"error": "Internal Server Error"}), 500
 
-@app.route("/user/history/<int:entry_id>", methods=["DELETE"])
+@app.route("/user/history/<entry_id>", methods=["DELETE"])
 @jwt_required()
 def delete_history_entry(entry_id):
     try:
         # Get current user from JWT token
         username = get_jwt_identity()
-        user = User.query.filter_by(username=username).first()
+        user = db.users.find_one({"username": username})
         
         if not user:
             return jsonify({"error": "User not found"}), 404
         
-        # Find the entry
-        entry = MoodEntry.query.filter_by(id=entry_id, user_id=user.id).first()
+        # Find and delete the entry
+        try:
+            object_id = ObjectId(entry_id)
+        except:
+            return jsonify({"error": "Invalid entry ID"}), 400
+            
+        # Delete the entry if it belongs to the user
+        result = db.mood_entries.delete_one({
+            "_id": object_id,
+            "user_id": user["_id"]
+        })
         
-        if not entry:
+        if result.deleted_count == 0:
             return jsonify({"error": "Entry not found"}), 404
-        
-        # Delete the entry
-        db.session.delete(entry)
-        db.session.commit()
         
         return jsonify({"message": "Entry deleted successfully"}), 200
         
@@ -371,16 +400,18 @@ def clear_history():
     try:
         # Get current user from JWT token
         username = get_jwt_identity()
-        user = User.query.filter_by(username=username).first()
+        user = db.users.find_one({"username": username})
         
         if not user:
             return jsonify({"error": "User not found"}), 404
         
         # Delete all entries for this user
-        MoodEntry.query.filter_by(user_id=user.id).delete()
-        db.session.commit()
+        result = db.mood_entries.delete_many({"user_id": user["_id"]})
         
-        return jsonify({"message": "History cleared successfully"}), 200
+        return jsonify({
+            "message": "History cleared successfully", 
+            "count": result.deleted_count
+        }), 200
         
     except Exception as e:
         logger.error(f"Error in clear_history endpoint: {str(e)}")
@@ -389,7 +420,28 @@ def clear_history():
 # Add a health check endpoint for Vercel
 @app.route("/health", methods=["GET"])
 def health_check():
-    return jsonify({"status": "ok"}), 200
+    """Health check endpoint for monitoring deployment status"""
+    response = {
+        "status": "ok",
+        "timestamp": datetime.utcnow().isoformat(),
+        "environment": "Vercel" if "VERCEL" in os.environ else "Development",
+        "services": {
+            "database": "Unknown"
+        }
+    }
+    
+    # Check database connectivity - but don't fail if it doesn't work
+    try:
+        # Use a lightweight query to check MongoDB connection
+        try:
+            db.command("ping")
+            response["services"]["database"] = "Connected"
+        except Exception as e:
+            response["services"]["database"] = f"Error: {str(e)[:100]}..."
+    except Exception as e:
+        response["services"]["database"] = f"Check failed: {str(e)[:100]}..."
+    
+    return jsonify(response), 200
 
 # Add routes for user rewards
 @app.route("/user/rewards", methods=["GET"])
@@ -397,26 +449,32 @@ def health_check():
 def get_rewards():
     try:
         username = get_jwt_identity()
-        user = User.query.filter_by(username=username).first()
+        user = db.users.find_one({"username": username})
         
         if not user:
             return jsonify({"error": "User not found"}), 404
         
         # Check if reset is needed
         today = datetime.now().strftime("%Y-%m-%d")
-        if user.last_reset_date != today:
-            user.daily_count = 0
-            user.last_reset_date = today
+        if user.get("last_reset_date") != today:
+            # Update the user document with reset values
+            db.users.update_one(
+                {"_id": user["_id"]},
+                {
+                    "$set": {
+                        "daily_count": 0, 
+                        "last_reset_date": today
+                    },
+                    "$max": {"rewards": 5}  # Ensure rewards is at least 5
+                }
+            )
             
-            # Ensure rewards is at least 5 on a new day
-            if user.rewards < 5:
-                user.rewards = 5
-                
-            db.session.commit()
-        
+            # Get updated user data
+            user = db.users.find_one({"_id": user["_id"]})
+            
         return jsonify({
-            "rewards": user.rewards,
-            "daily_count": user.daily_count
+            "rewards": user.get("rewards", 0),
+            "daily_count": user.get("daily_count", 0)
         }), 200
     except Exception as e:
         logger.error(f"Error in get_rewards endpoint: {str(e)}")
@@ -427,7 +485,7 @@ def get_rewards():
 def update_rewards():
     try:
         username = get_jwt_identity()
-        user = User.query.filter_by(username=username).first()
+        user = db.users.find_one({"username": username})
         
         if not user:
             return jsonify({"error": "User not found"}), 404
@@ -445,12 +503,14 @@ def update_rewards():
             return jsonify({"error": "Invalid rewards value"}), 400
         
         # Update rewards
-        user.rewards = new_rewards
-        db.session.commit()
+        db.users.update_one(
+            {"_id": user["_id"]},
+            {"$set": {"rewards": new_rewards}}
+        )
         
         return jsonify({
             "message": "Rewards updated successfully",
-            "rewards": user.rewards
+            "rewards": new_rewards
         }), 200
             
     except Exception as e:
@@ -462,25 +522,39 @@ def update_rewards():
 def increment_daily_count():
     try:
         username = get_jwt_identity()
-        user = User.query.filter_by(username=username).first()
+        user = db.users.find_one({"username": username})
         
         if not user:
             return jsonify({"error": "User not found"}), 404
         
         # Check if reset is needed
         today = datetime.now().strftime("%Y-%m-%d")
-        if user.last_reset_date != today:
-            user.daily_count = 1  # First entry of the day
-            user.last_reset_date = today
+        if user.get("last_reset_date") != today:
+            # First entry of the day
+            db.users.update_one(
+                {"_id": user["_id"]},
+                {
+                    "$set": {
+                        "daily_count": 1,
+                        "last_reset_date": today
+                    }
+                }
+            )
+            daily_count = 1
         else:
             # Increment daily count
-            user.daily_count += 1
-        
-        db.session.commit()
+            result = db.users.update_one(
+                {"_id": user["_id"]},
+                {"$inc": {"daily_count": 1}}
+            )
+            
+            # Get the updated count
+            updated_user = db.users.find_one({"_id": user["_id"]})
+            daily_count = updated_user.get("daily_count", 0)
         
         return jsonify({
             "message": "Daily count incremented",
-            "daily_count": user.daily_count
+            "daily_count": daily_count
         }), 200
     except Exception as e:
         logger.error(f"Error in increment_daily_count endpoint: {str(e)}")
@@ -492,7 +566,7 @@ def increment_daily_count():
 def add_weekly_mood():
     try:
         username = get_jwt_identity()
-        user = User.query.filter_by(username=username).first()
+        user = db.users.find_one({"username": username})
         
         if not user:
             return jsonify({"error": "User not found"}), 404
@@ -503,17 +577,19 @@ def add_weekly_mood():
             return jsonify({"error": "No mood data provided"}), 400
         
         # Create new weekly mood entry
-        new_weekly_mood = WeeklyMood(
-            user_id=user.id,
-            mood=data["mood"],
-            date=datetime.now() if "date" not in data else datetime.fromisoformat(data["date"])
-        )
+        new_weekly_mood = {
+            "user_id": user["_id"],
+            "mood": data["mood"],
+            "date": datetime.now() if "date" not in data else datetime.fromisoformat(data["date"])
+        }
         
         # Add to database
-        db.session.add(new_weekly_mood)
-        db.session.commit()
+        result = db.weekly_moods.insert_one(new_weekly_mood)
         
-        return jsonify({"message": "Weekly mood data saved successfully"}), 200
+        return jsonify({
+            "message": "Weekly mood data saved successfully",
+            "id": str(result.inserted_id)
+        }), 200
             
     except Exception as e:
         logger.error(f"Error in add_weekly_mood endpoint: {str(e)}")
@@ -524,20 +600,26 @@ def add_weekly_mood():
 def get_weekly_mood():
     try:
         username = get_jwt_identity()
-        user = User.query.filter_by(username=username).first()
+        user = db.users.find_one({"username": username})
         
         if not user:
             return jsonify({"error": "User not found"}), 404
         
         # Get entries from the last 30 days
         thirty_days_ago = datetime.now() - timedelta(days=30)
-        weekly_entries = WeeklyMood.query.filter(
-            WeeklyMood.user_id == user.id,
-            WeeklyMood.date >= thirty_days_ago
-        ).order_by(WeeklyMood.date.desc()).all()
+        weekly_entries = list(db.weekly_moods.find({
+            "user_id": user["_id"],
+            "date": {"$gte": thirty_days_ago}
+        }).sort("date", -1))
         
-        # Convert to dict
-        weekly_data = [entry.to_dict() for entry in weekly_entries]
+        # Convert to dict format with serialized ids and dates
+        weekly_data = []
+        for entry in weekly_entries:
+            weekly_data.append({
+                "id": str(entry["_id"]),
+                "mood": entry["mood"],
+                "date": entry["date"].isoformat() if isinstance(entry["date"], datetime) else entry["date"]
+            })
         
         return jsonify({"weekly_data": weekly_data}), 200
         

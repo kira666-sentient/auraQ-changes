@@ -2,15 +2,21 @@
  * AuraQ API Configuration
  * 
  * This file centralizes all API endpoint configuration to make deployment easier.
- * Change the API_BASE_URL to your Vercel deployment URL when deploying.
+ * The API_BASE_URL will be determined based on the current environment.
  */
 
 const config = {
-    // For local development
-    API_BASE_URL: "http://127.0.0.1:5000",
-    
-    // For Vercel deployment (uncomment and update when deploying)
-    // API_BASE_URL: "https://your-vercel-backend-url.vercel.app",
+    // Dynamically determine API base URL 
+    API_BASE_URL: (() => {
+        // For local development
+        if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+            return "http://127.0.0.1:5000";
+        }
+        
+        // For production
+        // Replace this with your actual backend URL after deployment
+        return "https://aura-q-backend.vercel.app";
+    })(),
     
     // API endpoints
     endpoints: {

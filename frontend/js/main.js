@@ -342,7 +342,7 @@ document.addEventListener("DOMContentLoaded", function() {
     
     // Load navbar if container exists
     if (navbarContainer) {
-        fetch('../components/navbar.html')
+        fetch('/components/navbar.html')
             .then(response => response.text())
             .then(html => {
                 navbarContainer.innerHTML = html;
@@ -352,7 +352,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 if (logoutBtn) {
                     logoutBtn.addEventListener("click", function() {
                         tokenManager.clearToken();
-                        window.location.href = "login.html";
+                        window.location.href = "/login";
                     });
                 }
                 
@@ -369,7 +369,7 @@ document.addEventListener("DOMContentLoaded", function() {
     
     // Load footer if container exists
     if (footerContainer) {
-        fetch('../components/footer.html')
+        fetch('/components/footer.html')
             .then(response => response.text())
             .then(html => {
                 footerContainer.innerHTML = html;
@@ -462,13 +462,13 @@ function updateAuthUI() {
 
 // Load Navbar & Footer on all pages
 document.addEventListener("DOMContentLoaded", () => {
-    loadComponent("navbar", "../components/navbar.html");
-    loadComponent("footer", "../components/footer.html");
+    loadComponent("navbar", "/components/navbar.html");
+    loadComponent("footer", "/components/footer.html");
 });
 
 // Logout function
 function logout() {
-    console.log("Logout initiated. Clearing storage..."); // <-- Add log
+    console.log("Logout initiated. Clearing storage...");
     // Clear all authentication data from sessionStorage
     sessionStorage.removeItem("token");
     sessionStorage.removeItem("username");
@@ -497,7 +497,7 @@ function logout() {
         localUsername: localStorage.getItem("username")
     });
 
-    window.location.href = "login.html";
+    window.location.href = "/login";
 }
 
 // Loading indicator utility functions

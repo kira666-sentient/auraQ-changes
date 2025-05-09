@@ -2,126 +2,139 @@ import os
 import json
 import re
 import random
-import time
 import logging
-from pathlib import Path
-from functools import wraps
+import sys
 from dotenv import load_dotenv
+import traceback
 
-# Load environment variables from .env file
-load_dotenv(override=True)  # Add override=True to ensure environment variables are properly loaded
+# Load environment variables
+load_dotenv(override=True)
 
-# Setup logging for model performance tracking
-log_dir = os.path.join(os.path.dirname(__file__), "logs")
-if not os.path.exists(log_dir):
-    os.makedirs(log_dir)
+# Configure console-only logging
+logger = logging.getLogger("aura_q")
+logger.setLevel(logging.INFO)
 
-model_logger = logging.getLogger("model_performance")
-model_logger.setLevel(logging.INFO)
+# Only add handler if one doesn't exist already (prevent duplicates)
+if not logger.handlers:
+    console_handler = logging.StreamHandler(sys.stdout)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
 
-# Create handlers
-perf_log_file = os.path.join(log_dir, "model_performance.log")
-file_handler = logging.FileHandler(perf_log_file)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-file_handler.setFormatter(formatter)
-model_logger.addHandler(file_handler)
+# Enhanced error logging for Vercel
+print("Initializing AI Analysis module")
 
-# Make imports resilient to failures
+# Try to import Gemini API with better error handling
+GEMINI_AVAILABLE = False
 try:
+    print("Attempting to import Google Generative AI")
     import google.generativeai as genai
     GEMINI_AVAILABLE = True
-    model_logger.info("Gemini API successfully imported")
-except ImportError:
-    model_logger.warning("google.generativeai module not available")
-    GEMINI_AVAILABLE = False
+    print("✅ Gemini API successfully imported")
+except ImportError as e:
+    print(f"❌ google.generativeai import error: {str(e)}")
+    logger.warning(f"google.generativeai module not available: {str(e)}")
+except Exception as e:
+    print(f"❌ Unexpected error importing Gemini: {str(e)}")
+    logger.error(f"Unexpected error importing Gemini: {str(e)}")
+    logger.error(traceback.format_exc())
 
+# Try to import TextBlob with better error handling
+TEXTBLOB_AVAILABLE = False
 try:
+    print("Attempting to import TextBlob")
     from textblob import TextBlob
-    TEXTBLOB_AVAILABLE = True
-    model_logger.info("TextBlob successfully imported")
-except ImportError:
-    model_logger.warning("TextBlob module not available")
-    TEXTBLOB_AVAILABLE = False
-
-# Try to import scikit-learn dependencies
-try:
-    import numpy as np
-    import joblib
-    SKLEARN_REQUIREMENTS_MET = True
     
-    # Only try to import sklearn if its requirements are met
-    try:
-        import sklearn
-        SKLEARN_AVAILABLE = True
-        model_logger.info("scikit-learn successfully imported")
-    except ImportError:
-        model_logger.warning("scikit-learn module not available, falling back to alternatives")
-        SKLEARN_AVAILABLE = False
-except ImportError:
-    model_logger.warning("numpy or joblib not available, falling back to alternatives")
-    SKLEARN_REQUIREMENTS_MET = False
-    SKLEARN_AVAILABLE = False
-
-# Performance tracking decorator
-def track_performance(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        start_time = time.time()
-        model_name = func.__name__
+    # Handle NLTK data requirements for Vercel
+    if "VERCEL" in os.environ:
+        print("Running in Vercel environment - configuring NLTK data")
+        import nltk
         
+        # Set NLTK data path to /tmp which is writable in Vercel
+        nltk_data_dir = "/tmp/nltk_data"
+        os.environ["NLTK_DATA"] = nltk_data_dir
+        
+        # Create directory if it doesn't exist
+        if not os.path.exists(nltk_data_dir):
+            print(f"Creating NLTK data directory at {nltk_data_dir}")
+            os.makedirs(nltk_data_dir, exist_ok=True)
+            
+        # Check if needed data exists, if not, download minimal required sets
         try:
-            result = func(*args, **kwargs)
-            duration = time.time() - start_time
-            
-            # Add which model was used to the result
-            if result and isinstance(result, dict):
-                result["model_used"] = model_name.replace("analyze_with_", "")
-            
-            # Log performance data
-            text_length = len(args[0]) if args else 0
-            model_logger.info(f"Model: {model_name} | Duration: {duration:.2f}s | Length: {text_length} | Success: True")
-            
-            return result
+            # Minimal data required by TextBlob
+            for item in ['punkt', 'averaged_perceptron_tagger']:
+                data_path = os.path.join(nltk_data_dir, item)
+                if not os.path.exists(data_path):
+                    print(f"Downloading NLTK data: {item}")
+                    nltk.download(item, download_dir=nltk_data_dir, quiet=True)
+                    print(f"Downloaded {item} to {nltk_data_dir}")
+                else:
+                    print(f"NLTK data {item} already exists")
         except Exception as e:
-            duration = time.time() - start_time
-            model_logger.error(f"Model: {model_name} | Duration: {duration:.2f}s | Error: {str(e)}")
-            raise
+            print(f"Error downloading NLTK data: {str(e)}")
     
-    return wrapper
+    # Test TextBlob minimally to ensure it's working
+    test_blob = TextBlob("Test sentence")
+    _ = test_blob.sentiment  # This will trigger NLTK data loading/errors if any
+    
+    TEXTBLOB_AVAILABLE = True
+    print("✅ TextBlob successfully imported and tested")
+except ImportError as e:
+    print(f"❌ TextBlob import error: {str(e)}")
+    logger.warning(f"TextBlob module not available: {str(e)}")
+except Exception as e:
+    print(f"❌ TextBlob initialization error: {str(e)}")
+    logger.error(f"TextBlob initialization error: {str(e)}")
+    logger.error(traceback.format_exc())
 
-# Initialize the Gemini API with your key if available
+# Configure Gemini API if available
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 if GEMINI_AVAILABLE and GEMINI_API_KEY:
     try:
+        print(f"Configuring Gemini API with key (first 3 chars: {GEMINI_API_KEY[:3]}...)")
         genai.configure(api_key=GEMINI_API_KEY)
-        model_logger.info("Gemini API configured with key")
-        print(f"Gemini API configured with key: {GEMINI_API_KEY[:5]}...{GEMINI_API_KEY[-5:]}")
+        logger.info("Gemini API configured successfully")
     except Exception as e:
-        model_logger.error(f"Failed to configure Gemini API: {str(e)}")
-        print(f"Error configuring Gemini API: {str(e)}")
+        print(f"❌ Failed to configure Gemini API: {str(e)}")
+        logger.error(f"Failed to configure Gemini API: {str(e)}")
+        logger.error(traceback.format_exc())
 elif GEMINI_AVAILABLE:
-    model_logger.warning("No Gemini API key found in environment")
-    print("Warning: No Gemini API key found in environment variables")
-else:
-    print("google.generativeai module not available - you may need to install it with: pip install google-generativeai")
+    print("⚠️ Gemini API key not found in environment variables")
+    logger.warning("Gemini API key not found in environment variables")
 
-# Path to model and vectorizer files
-MODEL_PATH = Path(os.path.dirname(__file__)) / "emotion_model.pkl"
-VECTORIZER_PATH = Path(os.path.dirname(__file__)) / "vectorizer.pkl"
-
-# Pre-load models if they exist and sklearn is available
-naive_bayes_model = None
-vectorizer = None
-
-if SKLEARN_REQUIREMENTS_MET and SKLEARN_AVAILABLE:
-    try:
-        if MODEL_PATH.exists() and VECTORIZER_PATH.exists():
-            model_logger.info("Attempting to load pretrained models")
-            naive_bayes_model = joblib.load(MODEL_PATH)
-            vectorizer = joblib.load(VECTORIZER_PATH)
-            model_logger.info("Successfully loaded Naive Bayes model and vectorizer")
-    except Exception as e:
-        model_logger.error(f"Failed to load Naive Bayes model: {str(e)}")
+# Add simple non-AI backup for complete resilience
+def generate_simple_analysis(story):
+    """
+    Extremely simple mood analysis as last resort backup
+    """
+    print("Using simple keyword-based analysis (last resort)")
+    
+    # Simple keyword matching
+    positive_words = ['happy', 'good', 'great', 'excellent', 'joy', 'wonderful', 'love', 'like', 'amazing']
+    negative_words = ['sad', 'bad', 'terrible', 'awful', 'hate', 'dislike', 'angry', 'upset', 'disappointed']
+    
+    # Convert to lowercase for case-insensitive matching
+    story_lower = story.lower()
+    
+    # Count positive and negative words
+    positive_count = sum(word in story_lower for word in positive_words)
+    negative_count = sum(word in story_lower for word in negative_words)
+    
+    if positive_count > negative_count:
+        mood = "joy"
+    elif negative_count > positive_count:
+        mood = "sadness"
+    else:
+        mood = "neutral"
+    
+    # Use a template response
+    feedback = random.choice(FEEDBACK_TEMPLATES[mood])
+    
+    return {
+        "mood": mood,
+        "feedback": feedback,
+        "model_used": "simple-keyword"
+    }
 
 # Define feedback templates for each mood
 FEEDBACK_TEMPLATES = {
@@ -129,141 +142,74 @@ FEEDBACK_TEMPLATES = {
         "It's wonderful to see you're feeling positive! Your joy comes through clearly in your words.",
         "Your upbeat mood is inspiring! It's great to see you in such good spirits."
     ],
-    
     "sadness": [
         "I notice you might be feeling down. Remember that difficult times do pass, and you're not alone in this.",
         "I sense some sadness in your words. It's okay to feel this way, and sharing your feelings is a positive step."
     ],
-    
     "anger": [
         "I can sense your frustration. Taking deep breaths might help clear your mind and process these intense feelings.",
         "It sounds like you're feeling upset about this situation. Your feelings are valid, and it's okay to acknowledge them."
     ],
-    
     "fear": [
         "It seems you might be feeling anxious. Remember, you're stronger than you think, and many fears we face never materialize.",
         "I understand that feeling uncertain can be scary. You're not alone in experiencing these worries."
     ],
-    
     "surprise": [
         "What an unexpected turn of events! How are you processing this surprise?",
         "Life can certainly be surprising sometimes! This seems like something that caught you off guard."
     ],
-    
     "disgust": [
         "I understand this situation might be unpleasant for you. It's natural to have strong reactions to things we find objectionable.",
         "Some experiences can be quite off-putting. Your reaction seems completely understandable."
     ],
-    
     "neutral": [
         "Thank you for sharing your thoughts. I appreciate your balanced perspective.",
         "I appreciate you taking the time to write this. Your measured approach comes through in your words."
     ]
 }
 
-@track_performance
 def analyze_mood(story):
-    """Analyze mood using Google Gemini API with Naive Bayes fallback."""
+    """Analyze mood using available tools: Gemini API, TextBlob, or simple keyword analysis"""
     
     if not story:
-        model_logger.warning("Empty story received")
-        return {"mood": "Unknown", "feedback": "No story provided."}
+        logger.warning("Empty story received")
+        return {"mood": "neutral", "feedback": "No story provided."}
 
     # Try Gemini first if available
     if GEMINI_AVAILABLE and GEMINI_API_KEY:
         try:
-            model_logger.info("Attempting Gemini analysis")
+            logger.info("Attempting Gemini analysis")
             result = analyze_with_gemini(story)
             if result:
+                logger.info("Successfully analyzed with Gemini")
                 return result
-            else:
-                # Log that Gemini analysis didn't yield a usable result
-                model_logger.warning("Gemini analysis completed but did not return a valid result. Falling back.")
         except Exception as e:
-            model_logger.error(f"Gemini API error during analyze_mood call: {str(e)}")
+            logger.error(f"Gemini API error: {str(e)}")
+            logger.error(traceback.format_exc())
     
-    # Try Naive Bayes next if available
-    if SKLEARN_REQUIREMENTS_MET and SKLEARN_AVAILABLE and naive_bayes_model is not None:
+    # If Gemini fails, try TextBlob
+    if TEXTBLOB_AVAILABLE:
         try:
-            model_logger.info("Attempting Naive Bayes analysis")
-            result = naive_bayes_fallback(story)
-            if result:
-                return result
+            logger.info("Using TextBlob fallback")
+            result = analyze_with_textblob(story)
+            logger.info("Successfully analyzed with TextBlob")
+            return result
         except Exception as e:
-            model_logger.error(f"Naive Bayes fallback failed: {str(e)}")
+            logger.error(f"TextBlob analysis failed: {str(e)}")
+            logger.error(traceback.format_exc())
     
-    # Last resort: simple fallback
-    try:
-        model_logger.info("Attempting basic sentiment analysis")
-        return simple_fallback(story)
-    except Exception as e:
-        model_logger.error(f"All mood analysis methods failed: {str(e)}")
-        return {"mood": "neutral", "feedback": "Thank you for sharing your thoughts with me."}
+    # Last resort: use simple keyword analysis
+    logger.warning("Using simple analysis as last resort")
+    return generate_simple_analysis(story)
 
-@track_performance
 def analyze_with_gemini(story):
-    """Analyze mood using Google Gemini API."""
-    
-    # Check if API key is configured
+    """Analyze mood using Google Gemini API"""
     if not GEMINI_API_KEY:
-        model_logger.error("ERROR: No Gemini API key available")
-        print("ERROR: No Gemini API key available")
-        return None
-    
-    # Validate API key format before attempting to use
-    if not GEMINI_API_KEY.startswith("AIza"):
-        model_logger.error(f"Invalid Gemini API key format: {GEMINI_API_KEY[:5]}...")
-        print(f"ERROR: Invalid Gemini API key format. Google API keys typically start with 'AIza'")
         return None
         
     try:
-        # Try to get available models with better error handling
-        try:
-            model_logger.info("Attempting to list available Gemini models...")
-            available_models = [m.name for m in genai.list_models()]
-            model_logger.info(f"Available Gemini models: {available_models}")
-        except Exception as e:
-            model_logger.error(f"Error listing Gemini models: {str(e)}")
-            if "invalid api key" in str(e).lower():
-                print(f"ERROR: Invalid Gemini API key. Please check your API key in the .env file.")
-                return None
-            # Try a direct approach with a known model instead of listing
-            model_logger.info("Falling back to direct model usage...")
-            available_models = []
-    
-        # Filter for modern models - prioritizing the stable ones
-        preferred_models = [
-            "gemini-pro",         # Most reliable model to try first
-            "models/gemini-pro",  # Alternative format
-            "v1beta/models/gemini-2.0-flash",
-            "models/gemini-1.5-flash",
-            "models/gemini-1.5-pro", 
-            "models/gemini-1.0-pro",
-            "models/gemini-1.5-flash-latest"
-        ]
+        model = genai.GenerativeModel("gemini-pro")
         
-        # Try to use one of the preferred models
-        model_name = None
-        for preferred in preferred_models:
-            if preferred in available_models or not available_models:  # Continue if we couldn't list models
-                model_name = preferred
-                break
-        
-        if not model_name:
-            # If no suitable model found
-            model_logger.warning("No suitable Gemini model found, using default gemini-pro")
-            model_name = "gemini-pro"  # Use default model
-        
-        model_logger.info(f"Using Gemini model: {model_name}")
-        
-        # Configure the model with error catching
-        try:
-            model = genai.GenerativeModel(model_name)
-        except Exception as e:
-            model_logger.error(f"Error configuring model {model_name}: {str(e)}")
-            return None
-        
-        # Prompt focusing on direct mood classification and feedback generation
         prompt = f"""
         Analyze this text: "{story}"
         
@@ -278,120 +224,65 @@ def analyze_with_gemini(story):
         IMPORTANT: Return raw JSON with no markdown formatting, code blocks, or additional text.
         """
         
-        # Generate response from Gemini with specific configuration and error handling
+        response = model.generate_content(
+            prompt,
+            generation_config={
+                "temperature": 0.7,
+                "top_p": 0.95,
+                "top_k": 40,
+                "max_output_tokens": 200,
+                "response_mime_type": "application/json"
+            }
+        )
+        
+        raw_response = response.text.strip()
+        
+        # Process response
         try:
-            model_logger.info("Sending request to Gemini API...")
-            response = model.generate_content(
-                prompt,
-                generation_config={
-                    "temperature": 0.7,
-                    "top_p": 0.95,
-                    "top_k": 40,
-                    "max_output_tokens": 200,
-                    "response_mime_type": "application/json"
-                }
-            )
-            model_logger.info("Successfully received response from Gemini API")
-            
-            # Get the raw response and log it
-            raw_response = response.text.strip()
-            model_logger.info(f"Raw Gemini response: {raw_response}")
-            
-        except Exception as e:
-            model_logger.error(f"Error generating content from Gemini: {str(e)}")
+            result = json.loads(raw_response)
+        except json.JSONDecodeError:
+            cleaned_json = clean_json_response(raw_response)
+            result = json.loads(cleaned_json)
+        
+        # Validate result
+        if 'mood' not in result or 'feedback' not in result:
             return None
         
-        # Extract JSON - improved handling
-        try:
-            # First attempt: Try direct parsing (if the response is already clean JSON)
-            try:
-                result = json.loads(raw_response)
-                model_logger.info("Successfully parsed JSON directly")
-            except json.JSONDecodeError as json_err:
-                model_logger.warning(f"Direct JSON parsing failed: {json_err}. Attempting cleaning.")
-                # Clean the response and try again
-                cleaned_json = clean_json_response(raw_response)
-                model_logger.info(f"Cleaned JSON: {cleaned_json}")
-                result = json.loads(cleaned_json)
-            
-            # Validate the result has the required fields
-            if 'mood' not in result or 'feedback' not in result:
-                model_logger.warning(f"Missing expected fields ('mood', 'feedback') in Gemini response: {result}")
-                return None
-            
-            # Ensure mood is one of the valid moods
-            valid_moods = ["joy", "sadness", "anger", "fear", "surprise", "disgust", "neutral"]
-            if result['mood'].lower() not in valid_moods:
-                closest_mood = get_closest_mood(result['mood'], valid_moods)
-                result['mood'] = closest_mood
-            
-            model_logger.info(f"AI analyzed mood: {result['mood']}, feedback: {result['feedback']}")
-            return result
-        except Exception as e:
-            model_logger.error(f"ERROR: Failed to process Gemini response: {str(e)}")
-            return None
-            
+        # Normalize mood
+        valid_moods = ["joy", "sadness", "anger", "fear", "surprise", "disgust", "neutral"]
+        if result['mood'].lower() not in valid_moods:
+            result['mood'] = get_closest_mood(result['mood'], valid_moods)
+        
+        result['model_used'] = "gemini"
+        return result
+    
     except Exception as e:
-        model_logger.error(f"Unexpected error in analyze_with_gemini: {str(e)}")
+        logger.error(f"Gemini analysis error: {str(e)}")
         return None
 
-def naive_bayes_fallback(story):
-    """Analyze mood using Naive Bayes classifier as a fallback."""
-    if naive_bayes_model is None or vectorizer is None:
-        print("Naive Bayes model or vectorizer not available")
-        return None
-        
-    # Transform the input text using the vectorizer
-    features = vectorizer.transform([story])
-    
-    # Predict the mood
-    mood = naive_bayes_model.predict(features)[0]
-    
-    # Get probabilities to determine confidence
-    probabilities = naive_bayes_model.predict_proba(features)[0]
-    max_prob = max(probabilities)
-    
-    # Log the prediction details
-    print(f"Naive Bayes predicted mood: {mood} with confidence: {max_prob:.2f}")
-    
-    # Generate appropriate feedback based on the mood
-    mood_lower = mood.lower()
-    if mood_lower in FEEDBACK_TEMPLATES:
-        feedback = random.choice(FEEDBACK_TEMPLATES[mood_lower])
-    else:
-        # Map to closest mood
-        closest_mood = get_closest_mood(mood_lower, list(FEEDBACK_TEMPLATES.keys()))
-        feedback = random.choice(FEEDBACK_TEMPLATES[closest_mood])
-        
-    return {
-        "mood": mood,
-        "feedback": feedback
-    }
-
-def simple_fallback(story):
-    """Absolute emergency fallback using basic sentiment."""
+def analyze_with_textblob(story):
+    """Simple mood analysis using TextBlob sentiment"""
     if not TEXTBLOB_AVAILABLE:
         return {"mood": "neutral", "feedback": random.choice(FEEDBACK_TEMPLATES["neutral"])}
-        
+    
     blob = TextBlob(story)
     sentiment = blob.sentiment.polarity
     
-    # Determine basic mood from sentiment
+    # Determine mood from sentiment
     if sentiment > 0.3:
         mood = "joy"
     elif sentiment < -0.3:
         mood = "sadness"
     else:
         mood = "neutral"
-        
-    # Generate a response using templates
-    feedback = random.choice(FEEDBACK_TEMPLATES[mood])
     
-    print(f"Basic sentiment analysis detected mood: {mood} (sentiment: {sentiment:.2f})")
+    # Generate feedback
+    feedback = random.choice(FEEDBACK_TEMPLATES[mood])
     
     return {
         "mood": mood,
-        "feedback": feedback
+        "feedback": feedback,
+        "model_used": "textblob"
     }
 
 def clean_json_response(text):
@@ -402,19 +293,15 @@ def clean_json_response(text):
     elif "```" in text:
         text = text.split("```")[1].strip()
     
-    # Use regex to find JSON object pattern
+    # Find JSON object pattern
     json_match = re.search(r'\{[\s\S]*\}', text)
     if json_match:
         text = json_match.group(0)
     
-    # Replace single quotes with double quotes
+    # Fix common issues
     text = text.replace("'", '"')
-    
-    # Fix escape sequences
     text = text.replace('\\n', ' ')
     text = text.replace('\\"', '"')
-    
-    # Fix any trailing commas before closing braces
     text = re.sub(r',\s*}', '}', text)
     
     return text
@@ -435,18 +322,18 @@ def get_closest_mood(invalid_mood, valid_moods):
     
     # Common synonyms
     mood_map = {
-        "happy": "joy", "joyful": "joy", "excited": "joy", "elated": "joy", "pleased": "joy",
-        "sad": "sadness", "unhappy": "sadness", "depressed": "sadness", "gloomy": "sadness",
-        "angry": "anger", "mad": "anger", "furious": "anger", "irritated": "anger",
-        "scared": "fear", "afraid": "fear", "anxious": "fear", "worried": "fear",
-        "surprised": "surprise", "shocked": "surprise", "astonished": "surprise",
-        "disgusted": "disgust", "repulsed": "disgust", "revolted": "disgust",
-        "calm": "neutral", "ok": "neutral", "fine": "neutral", "balanced": "neutral"
+        "happy": "joy", "joyful": "joy", "excited": "joy", 
+        "sad": "sadness", "unhappy": "sadness", "depressed": "sadness",
+        "angry": "anger", "mad": "anger", "furious": "anger",
+        "scared": "fear", "afraid": "fear", "anxious": "fear",
+        "surprised": "surprise", "shocked": "surprise",
+        "disgusted": "disgust", "repulsed": "disgust",
+        "calm": "neutral", "ok": "neutral", "fine": "neutral"
     }
     
     for synonym, valid in mood_map.items():
         if synonym in invalid_mood:
             return valid
     
-    # If all else fails, default to neutral
+    # Default
     return "neutral"

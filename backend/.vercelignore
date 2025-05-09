@@ -1,0 +1,34 @@
+# Development and local environment
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.cache/
+venv/
+.env
+.ipynb_checkpoints/
+*.ipynb
+
+# Log files
+logs/
+*.log
+
+# Local database files
+instance/
+*.db
+
+# Training data and large models
+emoDATASET/
+text.csv
+train_model.py
+
+# Development scripts
+setup.bat
+check_gemini_key.py
+migrate_data.py
+migrate_db.py
+run.py
+user_data.py
+
+# Keep these files for Vercel deployment:
+# app.py, wsgi.py, models.py, ai_analysis.py, routes/, requirements.txt

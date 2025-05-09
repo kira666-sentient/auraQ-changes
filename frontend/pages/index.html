@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Aura-detector</title>
+    <title>AuraQ - Emotional Wellness App</title>
     
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="../assets/logo.png">
+    <link rel="icon" type="image/png" href="/assets/logo.png">
+    <link rel="shortcut icon" href="/favicon.ico">
     
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,36 +15,402 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@100..900&family=Space+Grotesk:wght@300..700&display=swap" rel="stylesheet">
 
     <!-- Stylesheets -->
-    <link rel="stylesheet" href="../css/variables.css">
-    <link rel="stylesheet" href="../components/navbar.css">
-    <link rel="stylesheet" href="../components/footer.css">
-    <link rel="stylesheet" href="../css/global.css">
+    <link rel="stylesheet" href="/css/variables.css">
+    <link rel="stylesheet" href="/css/global.css">
+    <link rel="stylesheet" href="/components/navbar.css">
+    <link rel="stylesheet" href="/components/footer.css">
+
+    <style>
+        /* Hero section */
+        .hero {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 80px 20px;
+            background: linear-gradient(to right, #0f172a, #1e293b);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            margin-bottom: 20px;
+            background: linear-gradient(90deg, #38bdf8, #2dd4bf);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            z-index: 1;
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            max-width: 700px;
+            margin: 0 auto 40px;
+            color: #94a3b8;
+            line-height: 1.6;
+            z-index: 1;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+            z-index: 1;
+        }
+
+        .hero-btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .primary-btn {
+            background: linear-gradient(to right, #38bdf8, #2dd4bf);
+            border: none;
+            color: #0f172a;
+        }
+
+        .primary-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(56, 189, 248, 0.2);
+        }
+
+        .secondary-btn {
+            background: transparent;
+            border: 2px solid #38bdf8;
+            color: #38bdf8;
+        }
+
+        .secondary-btn:hover {
+            background: rgba(56, 189, 248, 0.1);
+            transform: translateY(-3px);
+        }
+
+        /* Features section */
+        .features {
+            padding: 80px 20px;
+            background: #0c1526;
+        }
+
+        .features h2 {
+            font-size: 2.5rem;
+            text-align: center;
+            margin-bottom: 60px;
+            background: linear-gradient(90deg, #38bdf8, #2dd4bf);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .feature-card {
+            background: linear-gradient(145deg, #131f35, #1c2b49);
+            border-radius: 15px;
+            padding: 30px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .feature-icon {
+            font-size: 40px;
+            margin-bottom: 20px;
+            color: #38bdf8;
+        }
+
+        .feature-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            color: #f1f5f9;
+        }
+
+        .feature-card p {
+            color: #94a3b8;
+            line-height: 1.6;
+        }
+
+        /* How it works section */
+        .how-it-works {
+            padding: 80px 20px;
+            background: #0f172a;
+        }
+
+        .how-it-works h2 {
+            font-size: 2.5rem;
+            text-align: center;
+            margin-bottom: 60px;
+            background: linear-gradient(90deg, #38bdf8, #2dd4bf);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .steps {
+            display: flex;
+            flex-direction: column;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .step {
+            display: flex;
+            margin-bottom: 40px;
+            position: relative;
+        }
+
+        .step:last-child {
+            margin-bottom: 0;
+        }
+
+        .step-number {
+            flex-shrink: 0;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(to right, #38bdf8, #2dd4bf);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #0f172a;
+            margin-right: 20px;
+        }
+
+        .step-content {
+            background: linear-gradient(145deg, #131f35, #1c2b49);
+            padding: 20px 30px;
+            border-radius: 10px;
+            flex: 1;
+        }
+
+        .step-content h3 {
+            color: #f1f5f9;
+            margin-bottom: 10px;
+            font-size: 1.3rem;
+        }
+
+        .step-content p {
+            color: #94a3b8;
+            line-height: 1.6;
+        }
+
+        /* About section */
+        .about {
+            padding: 80px 20px;
+            background: #0c1526;
+        }
+
+        .about h2 {
+            font-size: 2.5rem;
+            text-align: center;
+            margin-bottom: 40px;
+            background: linear-gradient(90deg, #38bdf8, #2dd4bf);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .about-content {
+            max-width: 800px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .about p {
+            color: #94a3b8;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+            text-align: center;
+        }
+
+        /* Blob animation */
+        .blob {
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            background: linear-gradient(45deg, rgba(56, 189, 248, 0.1), rgba(45, 212, 191, 0.1));
+            border-radius: 50%;
+            filter: blur(80px);
+            z-index: 0;
+            animation: blob-animation 15s infinite alternate;
+        }
+
+        .blob-1 {
+            top: -200px;
+            left: -100px;
+            animation-delay: 0s;
+        }
+
+        .blob-2 {
+            bottom: -200px;
+            right: -100px;
+            animation-delay: 5s;
+        }
+
+        @keyframes blob-animation {
+            0% {
+                transform: translate(0, 0) scale(1);
+            }
+            100% {
+                transform: translate(50px, 50px) scale(1.2);
+            }
+        }
+
+        /* Media queries */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .hero p {
+                font-size: 1rem;
+            }
+
+            .hero-buttons {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .feature-card {
+                padding: 20px;
+            }
+
+            .step {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
+
+            .step-number {
+                margin-right: 0;
+                margin-bottom: 15px;
+            }
+        }
+    </style>
 </head>
 <body>
-
-    <!-- Include Navbar -->
     <div id="navbar"></div>
 
     <!-- Hero Section -->
     <section class="hero">
-        <div class="hero-text">
-            <h1>Track Your Mood, Improve Your Life!</h1>
-            <p>Write your daily story, get AI-driven insights, and see your mood trends over time.</p>
-            <div class="hero-buttons">
-                <a href="login.html"><button class="btn btn-primary">Login</button></a>
-                <a href="signup.html"><button class="btn btn-secondary">Signup</button></a>
-            </div>
-        </div>
-
-        <div class="hero-image">
-            <img src="../assets/board with notes.png" alt="Hero Section Image">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <h1>Discover Your Emotional Wellness</h1>
+        <p>AuraQ helps you understand and track your emotional state through AI-powered journaling. Share your thoughts and get personalized insights into your emotional well-being.</p>
+        <div class="hero-buttons">
+            <a href="/login" class="hero-btn primary-btn">Get Started</a>
+            <a href="#how-it-works" class="hero-btn secondary-btn">Learn More</a>
         </div>
     </section>
 
-    <!-- Footer -->
+    <!-- Features Section -->
+    <section class="features">
+        <h2>Features</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🤖</div>
+                <h3>AI Mood Analysis</h3>
+                <p>Advanced AI analyzes the emotions behind your words, providing accurate mood detection and personalized feedback.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <h3>Mood Tracking</h3>
+                <p>Visualize your emotional patterns over time with easy-to-understand charts and statistics.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🔒</div>
+                <h3>Private & Secure</h3>
+                <p>Your journal entries are encrypted and kept private. We prioritize the security of your personal data.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">💡</div>
+                <h3>Self-Awareness</h3>
+                <p>Gain valuable insights into your emotional triggers and patterns to improve your mental well-being.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📱</div>
+                <h3>Accessible Anywhere</h3>
+                <p>Use AuraQ on any device with a web browser, anytime and anywhere you need it.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🎯</div>
+                <h3>Weekly Insights</h3>
+                <p>Receive weekly reviews of your emotional patterns with actionable suggestions for improvement.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section class="how-it-works" id="how-it-works">
+        <h2>How It Works</h2>
+        <div class="steps">
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h3>Create Your Account</h3>
+                    <p>Sign up for AuraQ to start your emotional wellness journey. It only takes a minute to create your secure account.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h3>Write Your Daily Journal</h3>
+                    <p>Share your thoughts, experiences, and feelings in your personal journal. Write as much or as little as you want.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h3>Receive AI Analysis</h3>
+                    <p>Our advanced AI analyzes your entry and provides insights into your emotional state, along with personalized feedback.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <h3>Track Your Progress</h3>
+                    <p>Monitor your emotional patterns over time through visual analytics and weekly reports to increase self-awareness.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- About Section -->
+    <section class="about">
+        <h2>About AuraQ</h2>
+        <div class="about-content">
+            <p>AuraQ was created by a team passionate about mental health and emotional well-being. We believe that understanding your emotions is the first step toward better mental health.</p>
+            <p>Our AI-powered tool combines advanced natural language processing with psychological principles to provide accurate emotional analysis and helpful feedback.</p>
+            <p>Join thousands of users who have improved their emotional awareness and mental well-being with AuraQ.</p>
+            <div class="hero-buttons">
+                <a href="/signup" class="hero-btn primary-btn">Join AuraQ Today</a>
+            </div>
+        </div>
+    </section>
+
     <div id="footer"></div>
 
     <!-- Scripts -->
-    <script src="../js/main.js"></script>
+    <script src="/js/config.js"></script>
+    <script src="/js/main.js"></script>
 </body>
 </html>
