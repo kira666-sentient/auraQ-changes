@@ -1,18 +1,35 @@
 {
+  "version": 2,
+  "cleanUrls": true,
+  "trailingSlash": false,
   "rewrites": [
     { "source": "/", "destination": "/pages/index.html" },
-    { "source": "/index.html", "destination": "/pages/index.html" },
-    { "source": "/(login|signup|dashboard)", "destination": "/pages/$1.html" },
-    { "source": "/favicon.ico", "destination": "/public/favicon.ico" },
-    { "source": "/assets/:path*", "destination": "/assets/:path*" },
-    { "source": "/css/:path*", "destination": "/css/:path*" },
-    { "source": "/js/:path*", "destination": "/js/:path*" },
-    { "source": "/components/:path*", "destination": "/components/:path*" }
+    { "source": "/index", "destination": "/pages/index.html" },
+    { "source": "/login", "destination": "/pages/login.html" },
+    { "source": "/signup", "destination": "/pages/signup.html" },
+    { "source": "/dashboard", "destination": "/pages/dashboard.html" },
+    { "source": "/favicon.ico", "destination": "/public/favicon.ico" }
   ],
-  "routes": [
-    { "handle": "filesystem" },
-    { "src": "/", "dest": "/pages/index.html" },
-    { "src": "/(.*)", "status": 404, "dest": "/pages/index.html" }
-  ],
-  "trailingSlash": false
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "X-XSS-Protection", "value": "1; mode=block" }
+      ]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/(css|js)/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    }
+  ]
 }
