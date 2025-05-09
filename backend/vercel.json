@@ -6,7 +6,7 @@
       "use": "@vercel/python",
       "config": {
         "maxLambdaSize": "15mb",
-        "runtime": "python3.9",
+        "runtime": "python3.12",
         "installCommand": "pip install --no-cache-dir -r requirements-vercel.txt"
       }
     }
@@ -22,7 +22,7 @@
     "NLTK_DATA": "/tmp/nltk_data",
     "PYTHONUNBUFFERED": "1",
     "VERCEL": "1",
-    "PYTHON_VERSION": "3.9",
+    "PYTHON_VERSION": "3.12",
     "FLASK_APP": "wsgi.py",
     "PIP_NO_CACHE_DIR": "1",
     "MONGODB_URI": "mongodb+srv://ALLMIGHT123:539huko3i97PDahe@cluster0.g4j7ljt.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
