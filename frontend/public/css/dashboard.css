@@ -291,6 +291,9 @@ main {
     width: calc(100% / 7 - 10px);
     text-align: center;
     transition: all 0.3s ease;
+    min-width: 40px; /* Ensure minimum width for content */
+    overflow-wrap: break-word; /* Allow long words to break */
+    word-wrap: break-word; /* Legacy support */
 }
 
 .day-mood:hover {
@@ -322,12 +325,17 @@ main {
 .day-mood-value {
     font-size: 0.8rem;
     margin-top: 4px;
+    white-space: normal; /* Prevent text truncation */
+    overflow: visible; /* Ensure text is not cut off */
+    width: 100%; /* Use full width available */
 }
 
 .day-mood-count {
     font-size: 0.7rem;
     opacity: 0.7;
     margin-top: 2px;
+    white-space: normal; /* Prevent text truncation */
+    overflow: visible; /* Ensure text is not cut off */
 }
 
 .review-insights {
@@ -523,12 +531,14 @@ main h2{
     /* Fix weekly days display */
     .daily-moods {
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(3, 1fr); /* 3 columns on mobile */
         gap: 8px;
     }
     
     .day-mood {
         width: 100%;
+        min-height: 70px; /* Ensure enough height for content */
+        padding: 8px 5px; /* Adjust padding for smaller screens */
     }
     
     /* Improve weekly review container spacing */

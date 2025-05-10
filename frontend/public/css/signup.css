@@ -48,18 +48,18 @@
     backdrop-filter: blur(10px);
 }
 
-/* Grouping Heading and Inputs */
-.signup-header {
+/* Signup Heading */
+.signup-heading {
     margin-bottom: 1.5rem;
 }
 
-.signup-header h2 {
+.signup-heading h1 {
     font-size: 2rem;
     font-weight: 700;
     margin-bottom: 5px;
 }
 
-.signup-header p {
+.signup-heading p {
     font-size: 1rem;
     color: #ccc;
     margin-bottom: 15px;
@@ -181,18 +181,20 @@
     background: #7a3bc4;
 }
 
-.sup-bottom {
+/* Signup bottom section */
+.signup-bottom {
     display: flex;
     flex-direction: column;
-    align-items: center; /* Center align content */
-    gap: 15px; /* Increased from 12px */
-    margin-top: 5px; /* Added margin-top */
+    align-items: center;
+    gap: 15px;
+    margin-top: 5px;
 }
 
-.social-signup {
+/* Social login buttons */
+.social-login {
     display: flex;
-    gap: 20px; /* Increased from 15px */
-    margin: 5px 0; /* Added vertical margin */
+    gap: 20px;
+    margin: 5px 0;
 }
 
 .p-login a{
@@ -206,13 +208,13 @@
 }
 
 
-.social-signup button {
+.social-login button {
     background: none;
     border: none;
     cursor: pointer;
 }
 
-.social-signup img {
+.social-login img {
     width: 50px;
     height: 48px;
 }
@@ -306,7 +308,7 @@
         width: 100%;
     }
     
-    .social-signup {
+    .social-login {
         width: 100%;
         justify-content: center;
     }

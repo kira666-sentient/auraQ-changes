@@ -12,18 +12,14 @@
     }
   ],
   "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/app.py"
-    }
+    { "src": "/(.*)", "dest": "/app.py" }
   ],
   "env": {
     "FLASK_ENV": "production",
-    "NLTK_DATA": "/tmp/nltk_data",
     "PYTHONUNBUFFERED": "1",
     "VERCEL": "1",
     "PYTHON_VERSION": "3.12",
-    "FLASK_APP": "wsgi.py",
+    "FLASK_APP": "app.py",
     "PIP_NO_CACHE_DIR": "1"
   }
 }

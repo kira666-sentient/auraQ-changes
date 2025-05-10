@@ -26,6 +26,7 @@ print("Initializing AI Analysis module - Gemini-only version")
 
 # Try to import Gemini API with better error handling
 GEMINI_AVAILABLE = False
+GEMINI_CONFIGURED = False
 try:
     print("Attempting to import Google Generative AI")
     import google.generativeai as genai
@@ -42,14 +43,16 @@ except Exception as e:
 # Configure Gemini API if available
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 if GEMINI_AVAILABLE and GEMINI_API_KEY:
-    try:
-        print(f"Configuring Gemini API with key (first 3 chars: {GEMINI_API_KEY[:3]}...)")
-        genai.configure(api_key=GEMINI_API_KEY)
-        logger.info("Gemini API configured successfully")
-    except Exception as e:
-        print(f"❌ Failed to configure Gemini API: {str(e)}")
-        logger.error(f"Failed to configure Gemini API: {str(e)}")
-        logger.error(traceback.format_exc())
+    if not GEMINI_CONFIGURED:
+        try:
+            print(f"Configuring Gemini API with key (first 3 chars: {GEMINI_API_KEY[:3]}...)")
+            genai.configure(api_key=GEMINI_API_KEY)
+            logger.info("Gemini API configured successfully")
+            GEMINI_CONFIGURED = True
+        except Exception as e:
+            print(f"❌ Failed to configure Gemini API: {str(e)}")
+            logger.error(f"Failed to configure Gemini API: {str(e)}")
+            logger.error(traceback.format_exc())
 elif GEMINI_AVAILABLE:
     print("⚠️ Gemini API key not found in environment variables")
     logger.warning("Gemini API key not found in environment variables")
@@ -148,9 +151,29 @@ def analyze_with_gemini(story):
     if not GEMINI_API_KEY:
         return None
         
+    # Select from preferred Gemini models
+    preferred_models = [
+        "models/gemini-1.5-flash",
+        "models/gemini-1.5-pro",
+        "models/gemini-pro",
+        "gemini-pro",
+        "models/gemini-1.0-pro",
+        "models/gemini-1.5-flash-latest"
+    ]
+    model = None
+    for name in preferred_models:
+        try:
+            logger.info(f"Attempting to load Gemini model: {name}")
+            model = genai.GenerativeModel(name)
+            logger.info(f"Selected Gemini model: {name}")
+            break
+        except Exception as e:
+            logger.warning(f"Model {name} unavailable: {str(e)}")
+    if model is None:
+        logger.error("No available Gemini model found")
+        return None
+
     try:
-        model = genai.GenerativeModel("gemini-pro")
-        
         prompt = f"""
         Analyze this text: "{story}"
         
@@ -171,8 +194,7 @@ def analyze_with_gemini(story):
                 "temperature": 0.7,
                 "top_p": 0.95,
                 "top_k": 40,
-                "max_output_tokens": 200,
-                "response_mime_type": "application/json"
+                "max_output_tokens": 200
             }
         )
         

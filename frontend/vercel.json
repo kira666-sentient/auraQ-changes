@@ -2,14 +2,12 @@
   "version": 2,
   "cleanUrls": true,
   "trailingSlash": false,
-  "routes": [
-    { "handle": "filesystem" },
-    { "src": "^/$", "dest": "/pages_old/index.html" },
-    { "src": "/index", "dest": "/pages_old/index.html" },
-    { "src": "/login", "dest": "/pages_old/login.html" },
-    { "src": "/signup", "dest": "/pages_old/signup.html" },
-    { "src": "/dashboard", "dest": "/pages_old/dashboard.html" },
-    { "src": "/(.*)", "status": 404, "dest": "/pages_old/index.html" }
+  "rewrites": [
+    { "source": "^/$", "destination": "/index.html" },
+    { "source": "^/index$", "destination": "/pages_old/index.html" },
+    { "source": "^/login$", "destination": "/pages_old/login.html" },
+    { "source": "^/signup$", "destination": "/pages_old/signup.html" },
+    { "source": "^/dashboard$", "destination": "/pages_old/dashboard.html" }
   ],
   "headers": [
     {

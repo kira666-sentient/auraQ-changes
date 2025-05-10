@@ -4,11 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Dashboard | Aura-detector</title>
-    
+
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="/assets/logo.png">
     <link rel="shortcut icon" href="/favicon.ico">
-    
+
+    <!-- Auth Check Script - Placed early -->
+    <script src="/js/config.js"></script>
+    <script src="/js/main.js"></script>
+    <!-- Removed inline redirection script to rely on main.js for auth check -->
+
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -73,7 +78,7 @@
             z-index: 9999;
         }
     </style>
-    
+
     <!-- Authentication check -->
     <script>
         // Immediately check if user is authenticated by checking both storage locations
@@ -95,7 +100,7 @@
             // Final check - if no token in either location, redirect to login
             if (!sessionStorage.getItem("token") && !localStorage.getItem("token")) {
                 console.log("No authentication token found. Redirecting to login page.");
-                window.location.href = "login.html";
+                window.location.href = "/pages_old/login.html";
             } else {
                 // Show user-actions-container if we're authenticated
                 setTimeout(() => {
@@ -135,29 +140,29 @@
             <textarea id="story-input" placeholder="Write your daily story..." required></textarea>
             <button type="button" id="submit-story">Submit</button>
         </div>
-        
+
         <!-- Results section with improved visibility -->
         <div class="results-section">
             <h3>Analysis Results</h3>
             <div id="mood-display">Mood: --</div>
             <div id="feedback-display">Feedback: --</div>
         </div>
-        
+
         <h3>Weekly Mood Review</h3>
         <div id="weekly-review">No data yet.</div>
     </main>
 
     <!-- ✅ Footer -->
     <div id="footer"></div>
-    
+
     <!-- Debug info panel -->
     <div id="debug-info">Loading debug info...</div>
-    
+
     <!-- Scripts - Load in correct order -->
     <script src="/js/config.js"></script>
     <script src="/js/main.js"></script>
     <script src="/js/dashboard.js"></script>
-    
+
     <!-- Debug script -->
     <script>
         // Add debug information

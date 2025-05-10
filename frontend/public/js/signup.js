@@ -17,9 +17,11 @@ document.addEventListener("DOMContentLoaded", function () {
     const signupForm = document.getElementById("signup-form");
     const usernameInput = document.getElementById("username");
     const emailInput = document.getElementById("email");
-    const passwordInput = document.getElementById("signup-password");
-    const togglePassword = document.getElementById("toggleSignupPassword");
+    const passwordInput = document.getElementById("password");
+    const togglePassword = document.getElementById("togglePassword");
     const submitButton = document.querySelector(".signuppg-btn");
+    const confirmPasswordInput = document.getElementById("confirm-password");
+    const toggleConfirmPassword = document.getElementById("toggleConfirmPassword");
     
     // Get error elements
     const usernameError = document.getElementById("username-error");
@@ -27,6 +29,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const passwordError = document.getElementById("password-error");
     const signupError = document.getElementById("signup-error");
     const signupSuccess = document.getElementById("signup-success");
+    const confirmPasswordError = document.getElementById("confirm-password-error");
 
     // Function to show error
     function showError(element, message) {
@@ -66,12 +69,20 @@ document.addEventListener("DOMContentLoaded", function () {
     // Toggle password visibility with animation
     togglePassword.addEventListener("click", function () {
         passwordInput.type = passwordInput.type === "password" ? "text" : "password";
-        togglePassword.src = passwordInput.type === "password" ? "../assets/mdi_hide.png" : "../assets/mdi_show.png";
+        togglePassword.src = passwordInput.type === "password" ? "/assets/mdi_hide.png" : "/assets/mdi_show.png";
         // Add subtle opacity change instead of transform to avoid position shifting
         togglePassword.style.opacity = "1";
         setTimeout(() => {
             togglePassword.style.opacity = "0.8";
         }, 200);
+    });
+
+    // Toggle confirm password visibility
+    toggleConfirmPassword.addEventListener("click", function () {
+        confirmPasswordInput.type = confirmPasswordInput.type === "password" ? "text" : "password";
+        toggleConfirmPassword.src = confirmPasswordInput.type === "password" ? "/assets/mdi_hide.png" : "/assets/mdi_show.png";
+        toggleConfirmPassword.style.opacity = "1";
+        setTimeout(() => toggleConfirmPassword.style.opacity = "0.8", 200);
     });
     
     // Real-time validation for username
@@ -80,18 +91,18 @@ document.addEventListener("DOMContentLoaded", function () {
         
         if (!username) {
             this.classList.remove("success");
-            this.classList.add("input-error");
+            this.classList.add("error");
             usernameError.textContent = "Username is required";
             usernameError.style.display = "block";
             usernameError.classList.add("is-active");
         } else if (username.length < 3) {
             this.classList.remove("success");
-            this.classList.add("input-error");
+            this.classList.add("error");
             usernameError.textContent = "Username must be at least 3 characters";
             usernameError.style.display = "block";
             usernameError.classList.add("is-active");
         } else {
-            this.classList.remove("input-error");
+            this.classList.remove("error");
             this.classList.add("success");
             usernameError.classList.remove("is-active");
             usernameError.style.display = "none";
@@ -104,18 +115,18 @@ document.addEventListener("DOMContentLoaded", function () {
         
         if (!email) {
             this.classList.remove("success");
-            this.classList.add("input-error");
+            this.classList.add("error");
             emailError.textContent = "Email is required";
             emailError.style.display = "block";
             emailError.classList.add("is-active");
         } else if (!isValidEmail(email)) {
             this.classList.remove("success");
-            this.classList.add("input-error");
+            this.classList.add("error");
             emailError.textContent = "Please enter a valid email address";
             emailError.style.display = "block";
             emailError.classList.add("is-active");
         } else {
-            this.classList.remove("input-error");
+            this.classList.remove("error");
             this.classList.add("success");
             emailError.classList.remove("is-active");
             emailError.style.display = "none";
@@ -128,21 +139,43 @@ document.addEventListener("DOMContentLoaded", function () {
         
         if (!password) {
             this.classList.remove("success");
-            this.classList.add("input-error");
+            this.classList.add("error");
             passwordError.textContent = "Password is required";
             passwordError.style.display = "block";
             passwordError.classList.add("is-active");
         } else if (password.length < 8) {
             this.classList.remove("success");
-            this.classList.add("input-error");
+            this.classList.add("error");
             passwordError.textContent = "Password must be at least 8 characters";
             passwordError.style.display = "block";
             passwordError.classList.add("is-active");
         } else {
-            this.classList.remove("input-error");
+            this.classList.remove("error");
             this.classList.add("success");
             passwordError.classList.remove("is-active");
             passwordError.style.display = "none";
+        }
+    });
+
+    // Real-time validation for confirm password
+    confirmPasswordInput.addEventListener("input", function() {
+        const confirmPassword = this.value.trim();
+        const password = passwordInput.value.trim();
+        if (!confirmPassword) {
+            this.classList.add("error");
+            confirmPasswordError.textContent = "Please confirm your password";
+            confirmPasswordError.style.display = "block";
+            confirmPasswordError.classList.add("is-active");
+        } else if (confirmPassword !== password) {
+            this.classList.add("error");
+            confirmPasswordError.textContent = "Passwords do not match";
+            confirmPasswordError.style.display = "block";
+            confirmPasswordError.classList.add("is-active");
+        } else {
+            this.classList.remove("error");
+            this.classList.add("success");
+            confirmPasswordError.classList.remove("is-active");
+            confirmPasswordError.style.display = "none";
         }
     });
 
@@ -155,7 +188,7 @@ document.addEventListener("DOMContentLoaded", function () {
             el.classList.remove('is-active');
             el.style.display = "none";
         });
-        document.querySelectorAll('.input-group input').forEach(el => el.classList.remove('input-error', 'input-success')); // Also reset input borders
+        document.querySelectorAll('.input-group input').forEach(el => el.classList.remove('error', 'success')); // Also reset input borders
         
         const username = usernameInput.value.trim();
         const email = emailInput.value.trim();
@@ -166,26 +199,36 @@ document.addEventListener("DOMContentLoaded", function () {
         
         if (!username || username.length < 3) {
             showError(usernameError, "Username must be at least 3 characters");
-            usernameInput.classList.add("input-error");
+            usernameInput.classList.add("error");
             hasError = true;
         } else {
-            usernameInput.classList.remove("input-error");
+            usernameInput.classList.remove("error");
         }
         
         if (!email || !isValidEmail(email)) {
             showError(emailError, "Please enter a valid email address");
-            emailInput.classList.add("input-error");
+            emailInput.classList.add("error");
             hasError = true;
         } else {
-            emailInput.classList.remove("input-error");
+            emailInput.classList.remove("error");
         }
         
         if (!password || password.length < 8) {
             showError(passwordError, "Password must be at least 8 characters");
-            passwordInput.classList.add("input-error"); // Keep the red border logic
+            passwordInput.classList.add("error"); // Keep the red border logic
             hasError = true;
         } else {
-            passwordInput.classList.remove("input-error");
+            passwordInput.classList.remove("error");
+        }
+
+        // Confirm password check
+        const confirmPassword = confirmPasswordInput.value.trim();
+        if (!confirmPassword || confirmPassword !== password) {
+            showError(confirmPasswordError, "Passwords do not match");
+            confirmPasswordInput.classList.add("error");
+            hasError = true;
+        } else {
+            confirmPasswordInput.classList.remove("error");
         }
         
         if (hasError) return;
@@ -217,7 +260,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 
                 // Redirect after short delay to show success message
                 setTimeout(() => {
-                    window.location.href = "login.html";
+                    window.location.href = "/pages_old/login.html"; // MODIFIED: Use direct path to login.html
                 }, 2000);
             } else {
                 // Stop loading state

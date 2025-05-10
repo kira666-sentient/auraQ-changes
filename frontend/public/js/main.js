@@ -158,7 +158,7 @@ class TokenManager {
             
             // Add event listener to the button
             document.getElementById("session-expired-login").addEventListener("click", () => {
-                window.location.href = "login.html";
+                window.location.href = "/pages_old/login.html"; // MODIFIED: Use direct path to login.html
             });
         }
         
@@ -352,7 +352,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 if (logoutBtn) {
                     logoutBtn.addEventListener("click", function() {
                         tokenManager.clearToken();
-                        window.location.href = "/login";
+                        window.location.href = "/pages_old/login.html"; // MODIFIED: Use direct path to login.html
                     });
                 }
                 
@@ -497,7 +497,7 @@ function logout() {
         localUsername: localStorage.getItem("username")
     });
 
-    window.location.href = "/login";
+    window.location.href = "/pages_old/login.html"; // MODIFIED: Use direct path to login.html
 }
 
 // Loading indicator utility functions

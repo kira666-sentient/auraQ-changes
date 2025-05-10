@@ -5,24 +5,22 @@
  * The API_BASE_URL will be determined based on the current environment.
  */
 
-const config = {
-    // Dynamically determine API base URL 
+const config = {    
+    // Dynamically determine API base URL
     API_BASE_URL: (() => {
         // For local development
         if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-            return "http://127.0.0.1:5000";
+            return "http://127.0.0.1:3000";  // Backend running on port 5000 (Flask default)
         }
         
-        // For production
-        // Use a proper backend URL - modify this to your actual backend URL
-        return "https://aura-q-backend.vercel.app";
+        // For production on Vercel
+        return "https://auraq-backend.vercel.app";
     })(),
-    
-    // API endpoints
+      // API endpoints
     endpoints: {
         // Auth endpoints
-        register: "/auth/register",
-        login: "/auth/login",
+        register: "/signup", 
+        login: "/login",
         
         // User data endpoints
         analyze: "/analyze",

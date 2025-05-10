@@ -13,6 +13,7 @@ from flask_pymongo import PyMongo
 from bson.objectid import ObjectId
 import time
 import pymongo
+import json
 
 # Load environment variables from .env file
 load_dotenv()
@@ -21,20 +22,30 @@ load_dotenv()
 logger = logging.getLogger("aura_q")
 logger.setLevel(logging.INFO)
 
-# Create console handler for Vercel
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
-
-# Create formatter
-formatter = logging.Formatter('%(asctime)s - %name%s - %levelname%s - %message%s')
-console_handler.setFormatter(formatter)
-
-# Add handler to the logger
-logger.addHandler(console_handler)
+# Prevent duplicate logs by checking if handlers already exist
+if not logger.handlers:
+    # Create console handler for Vercel
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.INFO)
+    
+    # Create formatter
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    console_handler.setFormatter(formatter)
+    
+    # Add handler to the logger
+    logger.addHandler(console_handler)
+else:
+    # If handlers exist, we're probably being imported multiple times
+    logger.debug("Logger already configured, skipping handler setup")
 
 # Initialize app
 app = Flask(__name__)
 logger.info("Starting AuraQ backend application")
+
+# Only log the full startup message once
+if not getattr(app, '_startup_complete', False):
+    logger.info("Initializing application for the first time")
+    app._startup_complete = True
 
 # Configure Flask to avoid trying to write to the filesystem on Vercel
 if "VERCEL" in os.environ:
@@ -111,13 +122,19 @@ if not mongodb_connected:
 
 # Set up CORS for all routes with appropriate origins
 FRONTEND_ORIGINS = [
+    "http://127.0.0.1:3001",  # Added for Vercel dev frontend
+    "http://localhost:3001",   # Added for Vercel dev frontend
+    "http://127.0.0.1:3000",  # Backend URL
+    "http://localhost:3000",   # Backend URL
     "http://127.0.0.1:5500",  # VS Code Live Server default
     "http://localhost:5500",
     "http://127.0.0.1:5501",  # Alternate port
     "http://localhost:5501",
     "http://127.0.0.1:8080",  # Common dev server port
     "http://localhost:8080",
-    "null"  # For file:// protocol
+    "null",  # For file:// protocol
+    "http://localhost:*",     # Any localhost port
+    "http://127.0.0.1:*"      # Any 127.0.0.1 port
 ]
 
 # Check environment variable for production frontend URL
@@ -127,11 +144,41 @@ if os.environ.get("FRONTEND_URL"):
 
 # Configure CORS with more permissive settings for development
 CORS(app, resources={
-    r"/*": {"origins": FRONTEND_ORIGINS},
+    r"/*": {
+        "origins": FRONTEND_ORIGINS,
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
+        "supports_credentials": True
+    },
 })
 logger.info(f"CORS configured with origins: {FRONTEND_ORIGINS}")
 
 bcrypt = Bcrypt(app)
+
+# Debug endpoint to list users
+@app.route("/debug/users", methods=["GET"])
+def debug_list_users():
+    response = {
+        "mongodb_users": []
+    }
+    
+    # Get MongoDB users if connected
+    if mongodb_connected:
+        try:
+            mongo_users = list(db.users.find({}, {"username": 1, "email": 1, "last_login": 1, "_id": 0}))
+            response["mongodb_users"] = mongo_users
+            for user in response["mongodb_users"]:
+                if "last_login" in user and user["last_login"]:
+                    user["last_login"] = user["last_login"].isoformat()
+            response["mongodb_count"] = len(response["mongodb_users"])
+            response["database_status"] = "Connected"
+        except Exception as e:
+            response["mongodb_error"] = str(e)
+            response["database_status"] = "Error"
+    else:
+        response["database_status"] = "Not connected"
+    
+    return jsonify(response)
 
 # Secret key for JWT (loaded from environment variables)
 app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY", "supersecretkey")
@@ -170,6 +217,129 @@ def handle_generic_exception(e):
     logger.error(f"Unhandled exception: {str(e)}")
     logger.error(traceback.format_exc())
     return jsonify({"error": "Internal server error"}), 500
+
+@app.errorhandler(404)
+def handle_404_error(e):
+    return jsonify({"error": "Endpoint not found"}), 404
+
+@app.route("/", methods=["GET"])
+def root():
+    return jsonify({"status": "ok", "message": "AuraQ backend is running"}), 200
+
+@app.route("/signup", methods=["POST"])
+def json_signup():
+    try:
+        # Check MongoDB connection first
+        if not mongodb_connected:
+            logger.error("MongoDB connection not available for registration")
+            return jsonify({"error": "Database connection error"}), 503
+        
+        data = request.get_json()
+        
+        if not data or 'username' not in data or 'password' not in data:
+            return jsonify({"error": "Username and password are required"}), 400
+        
+        username = data['username']
+        password = data['password']
+        email = data.get('email', f"{username}@example.com")  # Default email if not provided
+        
+        # Check if username already exists in MongoDB
+        if db.users.find_one({"username": username}):
+            return jsonify({"error": "Username already exists"}), 409
+        
+        # Hash the password
+        hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+        
+        # Create new user
+        new_user = {
+            "username": username,
+            "email": email,
+            "password": hashed_password,
+            "created_at": datetime.utcnow(),
+            "last_login": None,
+            "login_count": 0,
+            "rewards": 5,
+            "daily_count": 0,
+            "last_reset_date": datetime.now().strftime("%Y-%m-%d")
+        }
+        
+        # Insert into MongoDB
+        result = db.users.insert_one(new_user)
+        logger.info(f"User {username} registered successfully in MongoDB")
+        
+        # Create token for auto-login
+        access_token = create_access_token(identity=username)
+        
+        return jsonify({
+            "message": "User registered successfully", 
+            "token": access_token,
+            "username": username
+        }), 201
+        
+    except Exception as e:
+        logger.error(f"Unexpected error during signup: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({"error": "Registration error", "details": str(e)}), 500
+
+@app.route("/login", methods=["POST"])
+def json_login():
+    try:
+        data = request.get_json()
+        
+        logger.info(f"Login attempt for username: {data.get('username', 'unknown')}")
+        
+        if not data or 'username' not in data or 'password' not in data:
+            return jsonify({"error": "Username and password are required"}), 400
+        
+        username = data['username']
+        password = data['password']
+        
+        # MongoDB authentication only
+        if not mongodb_connected:
+            logger.error("MongoDB connection not available for authentication")
+            return jsonify({"error": "Database connection error"}), 503
+            
+        try:
+            user = db.users.find_one({"username": username})
+            
+            # Check if user exists and password matches
+            if not user:
+                logger.warning(f"User {username} not found in MongoDB")
+                return jsonify({"error": "Invalid username or password"}), 401
+                
+            if not bcrypt.check_password_hash(user["password"], password):
+                logger.warning(f"Invalid password for user: {username}")
+                return jsonify({"error": "Invalid username or password"}), 401
+                
+            logger.info(f"MongoDB authentication successful for user: {username}")
+            
+            # Update user's last login timestamp
+            current_time = datetime.utcnow()
+            db.users.update_one(
+                {"_id": user["_id"]},
+                {
+                    "$set": {"last_login": current_time},
+                    "$inc": {"login_count": 1}
+                }
+            )
+            
+            # Create access token
+            access_token = create_access_token(identity=username)
+            
+            return jsonify({
+                "message": "Login successful",
+                "token": access_token,
+                "username": username
+            }), 200
+                
+        except Exception as e:
+            logger.error(f"MongoDB authentication error: {str(e)}")
+            return jsonify({"error": "Authentication error", "details": str(e)}), 500
+        
+    except Exception as e:
+        logger.error(f"Unexpected error during JSON login: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({"error": "Authentication error", "details": str(e)}), 500
 
 # Helper function to check if MongoDB is available
 def check_db_connection():
@@ -560,6 +730,27 @@ def clear_history():
         return jsonify({"error": "Internal Server Error", "details": str(e)}), 500
 
 # Add a health check endpoint for Vercel
+@app.route("/debug/login", methods=["POST"])
+def debug_login():
+    """Debug endpoint that always succeeds login"""
+    try:
+        data = request.get_json()
+        username = data.get('username', 'debug_user')
+        
+        logger.info(f"Debug login for user: {username}")
+        
+        # Create access token
+        access_token = create_access_token(identity=username)
+        
+        return jsonify({
+            "message": "Debug login successful",
+            "token": access_token,
+            "username": username
+        }), 200
+    except Exception as e:
+        logger.error(f"Error in debug login: {str(e)}")
+        return jsonify({"error": "Debug login failed", "details": str(e)}), 500
+
 @app.route("/health", methods=["GET"])
 def health_check():
     """Health check endpoint for monitoring deployment status"""
@@ -610,10 +801,10 @@ def get_rewards():
                 {"_id": user["_id"]},
                 {
                     "$set": {
-                        "daily_count": 0, 
-                        "last_reset_date": today
-                    },
-                    "$max": {"rewards": 5}  # Ensure rewards is at least 5
+                        "daily_count": 0,
+                        "last_reset_date": today,
+                        "rewards": 5  # Reset daily rewards to full allowance
+                    }
                 }
             )
             
@@ -764,7 +955,10 @@ def add_weekly_mood():
         new_weekly_mood = {
             "user_id": user["_id"],
             "mood": data["mood"],
-            "date": datetime.now() if "date" not in data else datetime.fromisoformat(data["date"])
+            # Use the day index sent from the frontend to ensure correct day of week
+            # This is more reliable than trying to convert UTC dates
+            "dayIndex": data.get("dayIndex", datetime.now().weekday()),
+            "date": datetime.now() if "date" not in data else datetime.fromisoformat(data["date"].replace('Z', '+00:00'))
         }
         
         # Add to database
@@ -810,12 +1004,30 @@ def get_weekly_mood():
         
         # Convert to dict format with serialized ids and dates
         weekly_data = []
+        logger.info(f"Processing {len(weekly_entries)} weekly mood entries for user {username}")
         for entry in weekly_entries:
-            weekly_data.append({
+            # Ensure we have a dayIndex, if it's missing calculate it from the date
+            # But prioritize the dayIndex saved with the entry
+            if "dayIndex" in entry:
+                day_index = entry["dayIndex"]
+            else:
+                # Calculate day index from date, but be cautious about timezone issues
+                entry_date = entry["date"] if isinstance(entry["date"], datetime) else datetime.fromisoformat(str(entry["date"]).replace('Z', '+00:00'))
+                # Use weekday() + 1 % 7 to convert from Python's weekday() (0=Monday) to JS getDay() (0=Sunday)
+                day_of_week = entry_date.weekday() if entry_date else datetime.now().weekday()
+                day_index = (day_of_week + 1) % 7
+            
+            entry_data = {
                 "id": str(entry["_id"]),
                 "mood": entry["mood"],
+                "dayIndex": day_index,
                 "date": entry["date"].isoformat() if isinstance(entry["date"], datetime) else entry["date"]
-            })
+            }
+            
+            # Log each entry's day info for debugging
+            logger.info(f"Mood entry: {entry_data['mood']} on day index {day_index}, date: {entry_data['date']}")
+            
+            weekly_data.append(entry_data)
         
         return jsonify({"weekly_data": weekly_data}), 200
         
@@ -832,5 +1044,15 @@ def get_weekly_mood():
         logger.error(f"Error in get_weekly_mood endpoint: {str(e)}")
         return jsonify({"error": "Internal Server Error", "details": str(e)}), 500
 
+        logger.error(f"Error in get_weekly_mood endpoint: {str(e)}")
+        return jsonify({"error": "Internal Server Error", "details": str(e)}), 500
+
+application = app  # Expose Flask app for Vercel and other WSGI servers
+
 if __name__ == "__main__":
+    # This block is for local development only
+    # Vercel will use the 'application' object defined above
     app.run(debug=True)
+
+# Removed the explicit 'handler = app' and 'def handle(event, context):'
+# as @vercel/python should pick up the WSGI 'application' object directly.

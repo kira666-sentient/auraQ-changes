@@ -1,3 +1,12 @@
+// Global variables for credit system
+let dailyStoryCount = 0;
+let rewards = 5; // Default until we load from server
+let maxDailyFreeSubmissions = 2; // Users get 2 free submissions per day
+// Guard to prevent duplicate submissions
+let isStoryProcessing = false;
+// Variable to track if data has been loaded from server
+let userDataLoaded = false;
+
 document.addEventListener("DOMContentLoaded", function () {
     // Show the loading overlay initially
     const loadingOverlay = document.getElementById('loading-overlay');
@@ -36,12 +45,36 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
     }
 
-    // Server-side state (will be loaded from API)
-    let dailyStoryCount = 0;
-    let rewards = 5; // Default until we load from server
-
-    // Load user data from server (rewards and daily count)
-    fetchUserRewards();
+    // Load user data from server (rewards and daily count) 
+    // and use async/await with proper error handling
+    (async function() {
+        try {
+            console.log("Initial state before fetch - dailyStoryCount:", dailyStoryCount, 
+                      "maxDailyFreeSubmissions:", maxDailyFreeSubmissions,
+                      "rewards:", rewards);
+                      
+            await fetchUserRewards();
+            console.log("User data loaded successfully");
+            console.log("After fetch - dailyStoryCount:", dailyStoryCount, 
+                      "maxDailyFreeSubmissions:", maxDailyFreeSubmissions,
+                      "rewards:", rewards);
+            
+            // Update UI to reflect credit status immediately
+            if (dailyStoryCount >= maxDailyFreeSubmissions && rewards <= 0) {
+                console.log("User has no credits and used all free entries - disabling submit button");
+                submitButton.disabled = true;
+                submitButton.title = "No credits remaining";
+                submitButton.classList.add("disabled");
+            } else {
+                console.log("User still has either free entries or credits left");
+            }
+        } catch (error) {
+            console.error("Error during initial data load:", error);
+            // Still allow application to function with defaults
+            userDataLoaded = true; // Set to true even on error so UI isn't blocked
+            updateUIBasedOnUserData(); // MODIFIED: Call updateUIBasedOnUserData even on error to reflect default/current state
+        }
+    })();
     
     // Restore any saved results from localStorage (to handle refresh)
     restoreResultsFromStorage();
@@ -68,12 +101,103 @@ document.addEventListener("DOMContentLoaded", function () {
     // Initialize weekly mood review
     initializeWeeklyMoodReview();
 
+    // Add credit system UI elements if they don't exist
+    const submissionStatsEl = document.querySelector('.submission-stats');
+    if (!submissionStatsEl) {
+        // Find a good place to add the submission counter (near the form)
+        const formContainer = document.getElementById("story-form");
+        
+        if (formContainer) {
+            const statsElement = document.createElement('div');
+            statsElement.className = 'submission-stats';
+            statsElement.innerHTML = `
+                <div id="submission-counter" class="submission-counter">
+                    ${maxDailyFreeSubmissions} free entries left today
+                </div>
+                <div id="credits-info" class="credits-info">
+                    You've used all free entries. Each additional entry costs 1 credit.
+                </div>
+            `;
+            
+            // Insert before the form
+            formContainer.parentNode.insertBefore(statsElement, formContainer);
+            
+            // Add styling
+            const styleElement = document.createElement('style');
+            styleElement.textContent = `
+                .submission-stats {
+                    margin-bottom: 15px;
+                    font-size: 0.9rem;
+                }
+                
+                .submission-counter {
+                    display: inline-block;
+                    padding: 5px 10px;
+                    border-radius: 4px;
+                    background-color: #e8f5e9;
+                    color: #2e7d32;
+                }
+                
+                .submission-counter.warning {
+                    background-color: #ffecb3;
+                    color: #ff6f00;
+                }
+                
+                .credits-info {
+                    margin-top: 8px;
+                    color: #757575;
+                    display: none;
+                    font-style: italic;
+                }
+                
+                .credits-info.visible {
+                    display: block;
+                }
+                
+                #reward-points {
+                    transition: all 0.3s ease;
+                }
+                
+                .rewards-increased {
+                    animation: pulse-green 1.5s ease;
+                }
+                
+                .rewards-decreased {
+                    animation: pulse-red 1.5s ease;
+                }
+                
+                #submit-story.disabled {
+                    opacity: 0.6;
+                    cursor: not-allowed;
+                }
+                
+                @keyframes pulse-green {
+                    0% { transform: scale(1); }
+                    50% { transform: scale(1.2); color: #4CAF50; }
+                    100% { transform: scale(1); }
+                }
+                
+                @keyframes pulse-red {
+                    0% { transform: scale(1); }
+                    50% { transform: scale(1.2); color: #f44336; }
+                    100% { transform: scale(1); }
+                }
+            `;
+            document.head.appendChild(styleElement);
+        }
+    }
+    
     // Add event listener to button click
     submitButton.addEventListener("click", function(event) {
         // Prevent any default action that might cause page refresh
         if (event) {
             event.preventDefault();
             event.stopPropagation();
+        }
+        // Prevent duplicate processing
+        if (isStoryProcessing) {
+            console.log("Submission already in progress. Ignoring duplicate.");
+            return;
         }
         
         // Manually validate input
@@ -82,8 +206,25 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
         
-        // Process the story
-        processStory(storyInput.value.trim());
+        // Get current values with safety checks
+        const currentDailyCount = typeof dailyStoryCount !== 'undefined' ? dailyStoryCount : 0;
+        const currentRewards = typeof rewards !== 'undefined' ? rewards : 5;
+        const maxFreeSubmissions = typeof maxDailyFreeSubmissions !== 'undefined' ? maxDailyFreeSubmissions : 2;
+        
+        // Check if user has used all free entries and has no credits
+        if (currentDailyCount >= maxFreeSubmissions && currentRewards <= 0) {
+            alert("❌ You have 0 credits remaining and have used all free entries today.");
+            // Show notification in the UI as well
+            if (moodDisplay) moodDisplay.textContent = "Mood: Not Available"; 
+            if (feedbackDisplay) feedbackDisplay.textContent = "Feedback: You have no credits left. Come back tomorrow for free entries or earn more credits.";
+            return;
+        }
+        
+        // Process the story and set guard
+        isStoryProcessing = true;
+        processStory(storyInput.value.trim())
+            .catch(error => console.error(error))
+            .finally(() => { isStoryProcessing = false; });
     });
     
     // Also prevent the entire form from submitting if the container is still a form
@@ -99,6 +240,7 @@ document.addEventListener("DOMContentLoaded", function () {
     async function fetchUserRewards() {
         try {
             // Use the config object to get API URL
+            console.log("Fetching user rewards data from server...");
             const response = await fetchWithAuth(config.getUrl('userRewards'));
             
             if (!response.ok) {
@@ -108,18 +250,42 @@ document.addEventListener("DOMContentLoaded", function () {
             const data = await response.json();
             console.log("User rewards data from server:", data);
             
+            if (data === null || typeof data !== 'object') {
+                console.error("Invalid data received from server:", data);
+                throw new Error("Invalid data format received from server");
+            }
+            
+            // Validate received data values
+            const receivedRewards = typeof data.rewards === 'number' ? data.rewards : 0;
+            const receivedDailyCount = typeof data.daily_count === 'number' ? data.daily_count : 0;
+            
+            console.log("Validated data - rewards:", receivedRewards, "daily_count:", receivedDailyCount);
+            
             // Update local variables with server data
-            rewards = data.rewards;
-            dailyStoryCount = data.daily_count;
+            rewards = receivedRewards;
+            dailyStoryCount = receivedDailyCount;
+            
+            // Force-refresh the UI calculations
+            const freeSubmissionsLeft = Math.max(0, maxDailyFreeSubmissions - dailyStoryCount);
+            console.log("Calculated free submissions left:", freeSubmissionsLeft);
             
             // Update UI with received values
             updateRewardPoints(rewards);
             
+            // Update submission counters in UI
+            // updateSubmissionCounters(); // MODIFIED: Commented out, updateUIBasedOnUserData below handles it
+            
             console.log("Updated from server - Daily story count:", dailyStoryCount, "Rewards:", rewards);
+            userDataLoaded = true;
+            
+            // Central point for UI updates after fetching data
+            updateUIBasedOnUserData(); 
             
         } catch (error) {
             console.error("Error fetching user rewards:", error);
             // If we can't fetch from server, we'll keep the default values
+            userDataLoaded = true; // Set to true even on error so UI isn't blocked
+            updateUIBasedOnUserData(); // MODIFIED: Call updateUIBasedOnUserData even on error to reflect default/current state
         }
     }
     
@@ -153,6 +319,7 @@ document.addEventListener("DOMContentLoaded", function () {
     async function incrementDailyCount() {
         try {
             // Use the config object to get API URL
+            console.log("Incrementing daily story count, current value:", dailyStoryCount);
             const response = await fetchWithAuth(config.getUrl('userDailyCount'), {
                 method: "POST"
             });
@@ -163,48 +330,104 @@ document.addEventListener("DOMContentLoaded", function () {
             
             const data = await response.json();
             console.log("Server daily count update response:", data);
-            dailyStoryCount = data.daily_count;
+            
+            // Ensure we get a valid number back
+            if (data && typeof data.daily_count === 'number') {
+                dailyStoryCount = data.daily_count;
+                console.log("Updated dailyStoryCount to:", dailyStoryCount);
+                
+                // Force UI update after count changes
+                updateUIBasedOnUserData(); 
+            } else {
+                // If server doesn't return a proper count, increment locally as fallback
+                dailyStoryCount++;
+                console.log("Server didn't return valid count, incremented locally to:", dailyStoryCount);
+                updateUIBasedOnUserData(); // MODIFIED: Ensure UI updates on local fallback increment
+            }
+            
             return true;
             
         } catch (error) {
             console.error("Error incrementing daily count on server:", error);
+            // As a fallback, increment locally
+            dailyStoryCount++;
+            console.log("Error from server, incremented count locally to:", dailyStoryCount);
+            
+            // Force UI update
+            updateUIBasedOnUserData(); 
             return false;
         }
     }
     
     // ======== Separated story processing into its own function ========
     async function processStory(storyText) {
+        // Make sure user data is loaded before proceeding
+        if (!userDataLoaded) {
+            console.log("User data not loaded yet, fetching now...");
+            await fetchUserRewards();
+        }
+        
         // Validate content first
         if (!storyText || !storyText.trim()) {
             moodDisplay.textContent = "Mood: Error!";
             feedbackDisplay.textContent = "Feedback: Please enter some text before submitting.";
             return;
         }
-
-        // Deduct credits if this isn't the first submission today
-        let isPenaltySubmission = false;
-        let creditsToAdd = 1; // Default to adding 1 credit
         
-        if (dailyStoryCount >= 1) {
-            // This isn't the first submission today, deduct credits
-            creditsToAdd = -1;
-            console.log("Not first submission today, will deduct credits");
+        // Double-check credit situation - this ensures we don't process if a race condition 
+        // occurred between when the button was clicked and when processing started
+        const currentDailyCount = typeof dailyStoryCount !== 'undefined' ? dailyStoryCount : 0;
+        const currentRewards = typeof rewards !== 'undefined' ? rewards : 5;
+        const maxFreeSubmissions = typeof maxDailyFreeSubmissions !== 'undefined' ? maxDailyFreeSubmissions : 2;
+        
+        if (currentDailyCount >= maxFreeSubmissions && currentRewards <= 0) {
+            console.log("No credits available for processing - aborting");
+            if (moodDisplay) moodDisplay.textContent = "Mood: Not Available"; 
+            if (feedbackDisplay) feedbackDisplay.textContent = "Feedback: You have no credits left. Come back tomorrow for free entries or earn more credits.";
+            isStoryProcessing = false;
+            return;
+        }
+
+        // Determine if this is a free or paid submission
+        let isPaidSubmission = false;
+        let creditsToAdd = 0; // Default to not changing credits
+        
+        if (dailyStoryCount >= maxDailyFreeSubmissions) {
+            // After free submissions are used, check if they can pay with credits
+            isPaidSubmission = true;
+            console.log("Free submissions used up, checking credits");
             
             // Check if they have enough credits
             if (rewards <= 0) {
-                moodDisplay.textContent = "Mood: Error!";
-                feedbackDisplay.textContent = "Feedback: You don't have enough credits for another submission today. Please wait until tomorrow.";
-                rewards = 0; // Ensure rewards don't go negative
-                alert("❌ You now have 0 credits and can't submit more entries today.");
-                return; // Stop execution if credits reach 0 after deduction
+                // Show error and reset display with a more meaningful message
+                if (moodDisplay) moodDisplay.textContent = "Mood: Not Available"; 
+                if (feedbackDisplay) feedbackDisplay.textContent = "Feedback: You have no credits left. Come back tomorrow for free entries or earn more credits.";
+                updateRewardPoints(0); // Ensure displayed as 0
+                alert("❌ You have 0 credits remaining and have used all free entries today.");
+                isStoryProcessing = false; // Reset processing flag
+                return; // Stop execution
             }
             
-            isPenaltySubmission = true;
+            // Will deduct 1 credit when processing completes successfully
+            creditsToAdd = -1;
         }
         
         // Show loading state - ensure these elements exist before updating
-        if (moodDisplay) moodDisplay.textContent = "Mood: Analyzing...";
-        if (feedbackDisplay) feedbackDisplay.textContent = "Feedback: Please wait...";
+        if (moodDisplay) {
+            moodDisplay.textContent = "Mood: Analyzing...";
+            moodDisplay.classList.add('loading');
+            // Reset any previous display styles
+            moodDisplay.style.color = ''; 
+        }
+        if (feedbackDisplay) {
+            feedbackDisplay.textContent = "Feedback: Please wait...";
+            feedbackDisplay.classList.add('loading');
+            // Reset any previous display styles
+            feedbackDisplay.style.color = '';
+        }
+        
+        // Animate the loading state to draw attention
+        animateResults();
 
         // Show the global loading indicator
         loadingUtils.show("Analyzing your story...");
@@ -213,6 +436,13 @@ document.addEventListener("DOMContentLoaded", function () {
         let attempts = 0;
         const maxAttempts = 3;
         let result, response;
+        
+        // Function to clear loading states if something goes wrong
+        const clearLoadingStates = () => {
+            loadingUtils.hide();
+            if (moodDisplay) moodDisplay.classList.remove('loading');
+            if (feedbackDisplay) feedbackDisplay.classList.remove('loading');
+        };
         
         while (attempts < maxAttempts) {
             attempts++;
@@ -225,12 +455,19 @@ document.addEventListener("DOMContentLoaded", function () {
                 const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
                 
                 // Use the config object to get the analyze API URL
+                // Ensure existing results are cleared to prevent flickering
+                if (moodDisplay) moodDisplay.textContent = "Mood: Analyzing...";
+                if (feedbackDisplay) feedbackDisplay.textContent = "Feedback: Please wait...";
+                
                 response = await fetchWithAuth(config.getUrl('analyze'), {
                     method: "POST",
                     headers: { 
                         "Content-Type": "application/json"
                     },
-                    body: JSON.stringify({ story: storyText }),
+                    body: JSON.stringify({ 
+                        story: storyText,
+                        timestamp: new Date().getTime() // Add timestamp to prevent caching
+                    }),
                     signal: controller.signal
                 });
                 
@@ -247,6 +484,17 @@ document.addEventListener("DOMContentLoaded", function () {
                 result = await response.json();
                 console.log("🔍 Parsed JSON response:", result);
                 
+                // Verify response has the required fields
+                if (!result || !result.mood || !result.feedback) {
+                    console.error("Invalid response format - missing required fields");
+                    if (attempts >= maxAttempts) {
+                        throw new Error("Server returned incomplete response after multiple attempts");
+                    }
+                    // Try again if we don't have a complete response
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    continue;
+                }
+                
                 // If we get here, we succeeded, so break out of retry loop
                 break;
                 
@@ -255,9 +503,9 @@ document.addEventListener("DOMContentLoaded", function () {
                     console.error("Fetch request timed out");
                     
                     if (attempts >= maxAttempts) {
-                        moodDisplay.textContent = "Mood: Server timeout";
-                        feedbackDisplay.textContent = "Feedback: The server took too long to respond. Try again later.";
-                        loadingUtils.hide();
+                        clearLoadingStates();
+                        if (moodDisplay) moodDisplay.textContent = "Mood: Server timeout";
+                        if (feedbackDisplay) feedbackDisplay.textContent = "Feedback: The server took too long to respond. Try again later.";
                         return;
                     }
                     
@@ -266,9 +514,9 @@ document.addEventListener("DOMContentLoaded", function () {
                     
                 } else if (fetchError.message.includes("Authentication failed")) {
                     // Authentication error - handled separately
-                    moodDisplay.textContent = "Mood: Authentication Error!";
-                    feedbackDisplay.textContent = "Feedback: Your session has expired. Please log in again.";
-                    loadingUtils.hide();
+                    clearLoadingStates();
+                    if (moodDisplay) moodDisplay.textContent = "Mood: Authentication Error!";
+                    if (feedbackDisplay) feedbackDisplay.textContent = "Feedback: Your session has expired. Please log in again.";
                     tokenManager.showLoginExpired();
                     return;
                 } else if (attempts < maxAttempts) {
@@ -278,43 +526,77 @@ document.addEventListener("DOMContentLoaded", function () {
                     await new Promise(resolve => setTimeout(resolve, attempts * 1000));
                     continue; // Try again
                 } else {
-                    throw fetchError; // Re-throw if we've exhausted retries
+                    // Show error message in the UI instead of throwing which could break the UI
+                    clearLoadingStates();
+                    console.error("Fetch error after all retries:", fetchError);
+                    if (moodDisplay) moodDisplay.textContent = "Mood: Connection Error";
+                    if (feedbackDisplay) feedbackDisplay.textContent = "Feedback: Unable to reach the server. Please check your connection and try again.";
+                    return;
                 }
             }
         }
 
         // Hide loading overlay
         loadingUtils.hide();
+        
+        // Remove loading classes
+        if (moodDisplay) moodDisplay.classList.remove('loading');
+        if (feedbackDisplay) feedbackDisplay.classList.remove('loading');
 
         // Update UI with the results - with extra safety checks
         if (result && result.mood && result.feedback) {
-            // Update mood and feedback display
-            moodDisplay.textContent = `Mood: ${result.mood}`;
-            moodDisplay.style.fontWeight = "bold";
+            // Update mood and feedback display with animation
+            if (moodDisplay) {
+                moodDisplay.textContent = `Mood: ${result.mood}`;
+                moodDisplay.style.fontWeight = "bold";
+            }
             
-            feedbackDisplay.textContent = `Feedback: ${result.feedback}`;
-            feedbackDisplay.style.fontWeight = "bold";
+            if (feedbackDisplay) {
+                feedbackDisplay.textContent = `Feedback: ${result.feedback}`;
+                feedbackDisplay.style.fontWeight = "bold";
+            }
             
             console.log("Updated mood and feedback displays");
             
-            // Only increment story count for non-penalty submissions
-            if (!isPenaltySubmission) {
-                await incrementDailyCount();
-                console.log("Updated daily story count on server:", dailyStoryCount);
+            // Always increment daily count on successful submission
+            await incrementDailyCount();
+            console.log("Updated daily story count on server:", dailyStoryCount);
+            
+            // Apply credit changes for paid submissions
+            if (isPaidSubmission && creditsToAdd !== 0) {
+                // Extra safety check - don't deduct if already at 0
+                if (rewards <= 0 && creditsToAdd < 0) {
+                    console.error("Attempted to use credits when none available");
+                    if (moodDisplay) moodDisplay.textContent = "Mood: Credit Error";
+                    if (feedbackDisplay) feedbackDisplay.textContent = "Feedback: No credits available for this submission.";
+                    return;
+                }
+                
+                const oldRewards = rewards;
+                rewards = Math.max(0, rewards + creditsToAdd); // Ensure never below 0
+                console.log("Updating rewards to:", rewards);
+                
+                // Update rewards on the server
+                await updateServerRewards(rewards);
+                
+                // Animate the reward points change
+                updateRewardPoints(rewards, true);
+            } else {
+                // Just update UI without animation
+                updateRewardPoints(rewards);
             }
             
-            // Apply the rewards change locally
-            rewards = rewards + creditsToAdd;
-            console.log("Updating rewards to:", rewards);
-            
-            // Update rewards on the server
-            await updateServerRewards(rewards);
-            
-            // Update UI with new rewards
-            updateRewardPoints(rewards);
+            // Update submission counters with the new daily count
+            console.log("After story process - updating UI with dailyStoryCount:", dailyStoryCount);
+            updateUIBasedOnUserData(); 
             
             // Ensure the results are visible by scrolling to them
             moodDisplay.scrollIntoView({ behavior: "smooth", block: "center" });
+            
+            // Show a subtle notification about credits if this was a paid submission
+            if (isPaidSubmission) {
+                showCreditNotification(creditsToAdd);
+            }
 
             // Save mood data to server for weekly review
             await saveWeeklyMoodData(result.mood);
@@ -329,20 +611,27 @@ document.addEventListener("DOMContentLoaded", function () {
             tokenManager.saveMoodData(result.mood, result.feedback);
             
         } else if (result && result.error) {
-            moodDisplay.textContent = "Mood: Error!";
-            feedbackDisplay.textContent = `Feedback: ${result.error}`;
+            if (moodDisplay) moodDisplay.textContent = "Mood: Error!";
+            if (feedbackDisplay) feedbackDisplay.textContent = `Feedback: ${result.error}`;
             console.error("Backend error:", result.error);
         } else {
-            throw new Error("Invalid response format from server");
+            if (moodDisplay) moodDisplay.textContent = "Mood: Response Error";
+            if (feedbackDisplay) feedbackDisplay.textContent = "Feedback: Could not analyze your story. Please try again.";
+            console.error("Invalid response format from server");
         }
     }
 
     // New function to save weekly mood data to the server
     async function saveWeeklyMoodData(mood) {
         try {
-            // Use the actual current date and day name with correct formatting
+            // Use the actual current date and ensure correct day name
             const today = new Date();
+            // Get both short and full weekday names to avoid any display issues
             const dayName = today.toLocaleDateString('en-US', { weekday: 'short' });
+            const fullDayName = today.toLocaleDateString('en-US', { weekday: 'long' });
+            
+            const dayIndex = today.getDay(); // 0=Sunday, 1=Monday, etc.
+            console.log("Saving mood data for today:", fullDayName, "(", dayName, "), day index:", dayIndex);
             
             const response = await fetchWithAuth(config.getUrl('userWeeklyMood'), {
                 method: "POST",
@@ -352,7 +641,9 @@ document.addEventListener("DOMContentLoaded", function () {
                 body: JSON.stringify({
                     mood: mood,
                     date: today.toISOString(),
-                    dayName: dayName
+                    dayName: dayName,
+                    fullDayName: fullDayName,
+                    dayIndex: dayIndex // Add day index (0=Sunday, 1=Monday, etc.) for reliable matching
                 })
             });
 
@@ -387,6 +678,7 @@ document.addEventListener("DOMContentLoaded", function () {
             const weeklyData = data.weekly_data || [];
 
             if (weeklyData.length > 0) {
+                console.log("Weekly mood data from server:", weeklyData);
                 displayWeeklyMoodReview(weeklyData, weeklyReview);
             } else {
                 weeklyReview.innerHTML = `
@@ -484,6 +776,12 @@ document.addEventListener("DOMContentLoaded", function () {
                     }
                 }
                 
+                @keyframes pulse {
+                    0% { opacity: 0.6; }
+                    50% { opacity: 1; }
+                    100% { opacity: 0.6; }
+                }
+                
                 .fade-in-up {
                     animation: fadeInUp 0.5s ease forwards;
                 }
@@ -491,6 +789,32 @@ document.addEventListener("DOMContentLoaded", function () {
                 #mood-display, #feedback-display {
                     transform: translateY(0); /* Reset transform */
                     transition: all 0.3s ease;
+                    position: relative;
+                    min-height: 24px;
+                }
+                
+                #mood-display.loading, #feedback-display.loading {
+                    animation: pulse 1.5s infinite ease-in-out;
+                    background-color: rgba(255, 255, 255, 0.1);
+                    border-radius: 4px;
+                    padding-left: 5px;
+                    padding-right: 5px;
+                }
+                
+                #mood-display.loading::after, #feedback-display.loading::after {
+                    content: '';
+                    position: absolute;
+                    bottom: -3px;
+                    left: 0;
+                    width: 100%;
+                    height: 2px;
+                    background: linear-gradient(to right, transparent, var(--primary-color), transparent);
+                    animation: loading-bar 2s infinite ease-in-out;
+                }
+                
+                @keyframes loading-bar {
+                    0% { transform: translateX(-100%); }
+                    100% { transform: translateX(100%); }
                 }
                 
                 #mood-display:hover, #feedback-display:hover {
@@ -531,6 +855,13 @@ document.addEventListener("DOMContentLoaded", function () {
         
         // Initialize weekly mood visualization
         initializeWeeklyMoodVisualization();
+        
+        // Validate UI state is consistent with data
+        validateUIState();
+        
+        // Set up periodic UI validation to catch any race conditions
+        // This ensures the display always matches the actual data state
+        setInterval(validateUIState, 3000); // Check every 3 seconds
     }, 300);
 
     // Function to initialize weekly mood visualization
@@ -738,7 +1069,7 @@ document.addEventListener("DOMContentLoaded", function () {
         
         // Get day of week
         const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const today = dayNames[new Date().getDay()];
+        const today = dayNames[new Date().getDay()]; // FIXED: Corrected syntax error: removed dot before new
         
         // Get current weekly data
         let weeklyMoods = JSON.parse(sessionStorage.getItem('weeklyMoods') || '{}');
@@ -758,13 +1089,213 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 // Function to update reward points in the navbar
-function updateRewardPoints(value) {
+function updateRewardPoints(value, animate = false) {
     // Update both in dashboard and navbar if they exist
     const rewardPoints = document.getElementById("reward-points");
     if (rewardPoints) {
+        // Get current value to determine if this is an increase or decrease
+        const currentValue = parseInt(rewardPoints.textContent || "0");
+        
+        // Set new value
         rewardPoints.textContent = value;
         console.log("Updated reward points:", value);
+        
+        // Animate if requested and there's a change
+        if (animate && currentValue !== value) {
+            // Remove existing animation classes
+            rewardPoints.classList.remove('rewards-increased', 'rewards-decreased');
+            
+            // Add appropriate animation class
+            if (value > currentValue) {
+                rewardPoints.classList.add('rewards-increased');
+            } else if (value < currentValue) {
+                rewardPoints.classList.add('rewards-decreased');
+            }
+            
+            // Remove animation class after it completes
+            setTimeout(() => {
+                rewardPoints.classList.remove('rewards-increased', 'rewards-decreased');
+            }, 1500);
+        }
     }
+    
+    // MODIFIED: Centralize UI update through updateUIBasedOnUserData
+    updateUIBasedOnUserData();
+}
+
+// Function to validate and ensure UI state is consistent
+function validateUIState() {
+    // MODIFIED: Add guard for userDataLoaded
+    if (!userDataLoaded) {
+        console.log("validateUIState called before user data loaded. Skipping validation.");
+        return;
+    }
+
+    // Ensure the submission counter reflects the actual dailyStoryCount
+    const submissionCounterEl = document.getElementById("submission-counter");
+    const freeSubmissionsLeft = Math.max(0, maxDailyFreeSubmissions - dailyStoryCount);
+    
+    if (submissionCounterEl && 
+        submissionCounterEl.textContent !== `${freeSubmissionsLeft} free entries left today`) {
+        console.log("UI inconsistency detected! Fixing submission counter.");
+        console.log("Expected:", `${freeSubmissionsLeft} free entries left today`);
+        console.log("Actual:", submissionCounterEl.textContent);
+        
+        submissionCounterEl.textContent = `${freeSubmissionsLeft} free entries left today`;
+        
+        if (freeSubmissionsLeft === 0) {
+            submissionCounterEl.classList.add("warning");
+        } else {
+            submissionCounterEl.classList.remove("warning");
+        }
+    }
+    
+    // Update button state to match data
+    const submitButton = document.getElementById("submit-story");
+    if (submitButton) {
+        const shouldBeDisabled = dailyStoryCount >= maxDailyFreeSubmissions && rewards <= 0;
+        const isCurrentlyDisabled = submitButton.disabled === true;
+        
+        if (shouldBeDisabled !== isCurrentlyDisabled) {
+            console.log("UI inconsistency detected! Fixing submit button state.");
+            console.log("Button should be disabled:", shouldBeDisabled);
+            console.log("Button is currently disabled:", isCurrentlyDisabled);
+            
+            if (shouldBeDisabled) {
+                submitButton.disabled = true;
+                submitButton.title = "No credits remaining";
+                submitButton.classList.add("disabled");
+            } else {
+                submitButton.disabled = false;
+                submitButton.title = "";
+                submitButton.classList.remove("disabled");
+            }
+        }
+    }
+}
+
+// Function to update submit button state based on user's credit situation
+function updateSubmitButtonState() {
+    const submitButton = document.getElementById("submit-story");
+    if (!submitButton) return;
+    
+    // Ensure variables are defined with default values if not set
+    // These should reflect the true current state after any server updates
+    const currentDailyCount = typeof dailyStoryCount !== 'undefined' ? dailyStoryCount : 0;
+    const currentRewards = typeof rewards !== 'undefined' ? rewards : 0; // Default to 0 if undefined
+    const currentMaxFreeSubmissions = typeof maxDailyFreeSubmissions !== 'undefined' ? maxDailyFreeSubmissions : 2;
+    
+    const canSubmit = (currentDailyCount < currentMaxFreeSubmissions) || (currentRewards > 0);
+    const reason = (currentDailyCount >= currentMaxFreeSubmissions && currentRewards <= 0) ? "No free entries or credits left." : "";
+
+    console.log(
+        "updateSubmitButtonState - dailyStoryCount:", currentDailyCount, 
+        "maxDailyFreeSubmissions:", currentMaxFreeSubmissions,
+        "rewards:", currentRewards,
+        "canSubmit:", canSubmit,
+        "Reason:", reason
+    );
+    
+    if (canSubmit) {
+        submitButton.disabled = false;
+        submitButton.title = ""; // Clear any previous "disabled" title
+        submitButton.classList.remove("disabled");
+        
+        // Remove warning message if it exists
+        const warningMsg = document.querySelector('.credits-warning');
+        if (warningMsg) warningMsg.remove();
+
+    } else {
+        submitButton.disabled = true;
+        submitButton.title = reason || "No credits remaining"; // Default title
+        submitButton.classList.add("disabled");
+        
+        // Show warning message near the form
+        let warningMsg = document.querySelector('.credits-warning');
+        if (!warningMsg) {
+            warningMsg = document.createElement('div');
+            warningMsg.className = 'credits-warning';
+            warningMsg.style.color = '#f44336'; // Consider using CSS variables
+            warningMsg.style.fontWeight = 'bold';
+            warningMsg.style.marginBottom = '15px';
+            
+            const storyFormContainer = document.getElementById("story-form");
+            if (storyFormContainer) {
+                storyFormContainer.parentNode.insertBefore(warningMsg, storyFormContainer);
+            }
+        }
+        warningMsg.innerHTML = reason || 'You have no more free entries or credits today. Come back tomorrow for more free entries!';
+    }
+}
+
+// Function to show a credit notification
+function showCreditNotification(creditsChange) {
+    // Create a notification element
+    const notification = document.createElement('div');
+    notification.className = 'credit-notification';
+    
+    if (creditsChange < 0) {
+        notification.innerHTML = `<span class="credit-used">-1 credit used</span>`;
+        notification.classList.add('credit-decrease');
+    } else if (creditsChange > 0) {
+        notification.innerHTML = `<span class="credit-earned">+${creditsChange} credit earned</span>`;
+        notification.classList.add('credit-increase');
+    }
+    
+    // Add to document
+    document.body.appendChild(notification);
+    
+    // Add CSS for notifications if not already present
+    if (!document.getElementById('credit-notification-styles')) {
+        const styleElement = document.createElement('style');
+        styleElement.id = 'credit-notification-styles';
+        styleElement.textContent = `
+            .credit-notification {
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background-color: rgba(0, 0, 0, 0.7);
+                color: #fff;
+                padding: 10px 15px;
+                border-radius: 5px;
+                z-index: 1000;
+                opacity: 0;
+                transform: translateY(-20px);
+                animation: notification-appear 3s ease forwards;
+            }
+            
+            .credit-decrease {
+                border-left: 4px solid #f44336;
+            }
+            
+            .credit-increase {
+                border-left: 4px solid #4CAF50;
+            }
+            
+            .credit-used {
+                color: #ff7875;
+            }
+            
+            .credit-earned {
+                color: #52c41a;
+            }
+            
+            @keyframes notification-appear {
+                0% { opacity: 0; transform: translateY(-20px); }
+                15% { opacity: 1; transform: translateY(0); }
+                85% { opacity: 1; transform: translateY(0); }
+                100% { opacity: 0; transform: translateY(-20px); }
+            }
+        `;
+        document.head.appendChild(styleElement);
+    }
+    
+    // Remove after animation completes
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 3000);
 }
 
 // Function to display weekly mood data with improved visualization
@@ -792,18 +1323,30 @@ function displayWeeklyMoodReview(weeklyData, container) {
     // Group entries by day with better date handling
     const dailyMoods = {};
     weekData.forEach(entry => {
-        // Use the stored dayName if it exists, otherwise calculate from the date
+        // Parse the entry date
         const entryDate = new Date(entry.date);
-        const day = entry.dayName || entryDate.toLocaleDateString('en-US', { weekday: 'short' });
         
-        // Store the formatted date for comparing with today
+        // Use the dayIndex from the backend if available (most reliable source)
+        // Otherwise calculate from the date (which could have timezone issues)
+        const dayIndex = entry.dayIndex !== undefined ? entry.dayIndex : entryDate.getDay();
+        
+        // Get standardized day key for reliable matching
+        const standardDaysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        const day = standardDaysOfWeek[dayIndex];
+        
+        console.log("Processing entry with date:", entryDate.toDateString(), 
+                    "Day index:", dayIndex, 
+                    "Day label:", day);
+        
+        // Store the formatted date for comparing
         const formattedDate = entryDate.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
         
         if (!dailyMoods[day]) {
             dailyMoods[day] = {
                 moods: [],
                 date: entryDate,
-                formattedDate: formattedDate
+                formattedDate: formattedDate,
+                dayIndex: dayIndex
             };
         }
         dailyMoods[day].moods.push(entry.mood);
@@ -901,6 +1444,8 @@ function displayWeeklyMoodReview(weeklyData, container) {
     
     // Create the last 7 days in correct order
     const last7Days = [];
+    console.log("Today's day index:", todayIndex, "which is", standardDaysOfWeek[todayIndex]);
+    
     for (let i = 6; i >= 0; i--) {
         // Calculate the day index by going backwards from today
         let dayIndex = (todayIndex - i + 7) % 7; // Ensure positive index
@@ -913,27 +1458,39 @@ function displayWeeklyMoodReview(weeklyData, container) {
         const fullDate = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         const formattedDate = date.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
         
+        console.log("Creating day at position", i, "of 7: day index =", dayIndex, 
+                    "day name =", dayName, "date =", date.toDateString());
+        
         last7Days.push({
             dayName: dayName,
             fullDate: fullDate,
             formattedDate: formattedDate,
+            dayIndex: dayIndex, // Add day index for more reliable day matching
             isToday: i === 0 // Mark today's entry
         });
     }
     
     // Now display each day with the proper labels and improved styling
     for (const dayInfo of last7Days) {
-        // Check if we have data for this day specifically
+        // Direct mapping by dayName which is based on calculated dayIndex
         const dayMoodData = dailyMoods[dayInfo.dayName];
         
-        // Only consider this day's data if the dates actually match
-        // This ensures we don't show incorrect data from previous weeks
-        const dayMoods = dayMoodData && weekData.some(entry => {
-            const entryDate = new Date(entry.date);
-            return entryDate.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) === dayInfo.formattedDate;
-        }) ? dayMoodData.moods : [];
+        // Use the direct day mapping
+        let dayMoods = [];
         
-        let dayMood = "No entries";
+        if (dayMoodData) {
+            dayMoods = dayMoodData.moods;
+            console.log("Found mood data for", dayInfo.dayName, "showing", dayMoods.length, "entries", 
+                        "day index:", dayInfo.dayIndex, 
+                        "is today:", dayInfo.isToday ? "YES" : "NO");
+        } else {
+            console.log("No mood data found for", dayInfo.dayName, 
+                        "day index:", dayInfo.dayIndex, 
+                        "is today:", dayInfo.isToday ? "YES" : "NO");
+        }
+        
+        // Fix: Standardize "No entries" text for all days, including Sunday
+        let dayMood = dayMoods.length > 0 ? "" : "No entries";
         let moodColor = "#888"; // Default gray for no data
         
         if (dayMoods.length > 0) {
@@ -968,7 +1525,7 @@ function displayWeeklyMoodReview(weeklyData, container) {
                     <div class="mood-circle" style="background-color: ${moodColor}"></div>
                 </div>
                 <div class="day-mood-value">${dayMood}</div>
-                <div class="day-mood-count">${dayMoods.length > 0 ? `${dayMoods.length} entries` : ''}</div>
+                <div class="day-mood-count">${dayMoods.length > 0 ? `${dayMoods.length} ${dayMoods.length === 1 ? 'entry' : 'entries'}` : ''}</div>
             </div>
         `;
     }
@@ -1037,5 +1594,49 @@ function generateInsights(moodCounts, totalEntries) {
         ];
         return insightOptions[Math.floor(Math.random() * insightOptions.length)];
     }
+}
+
+// Function to update all UI elements based on current user data
+function updateUIBasedOnUserData() {
+    console.log("Central UI Update - dailyStoryCount:", dailyStoryCount, "maxDailyFreeSubmissions:", maxDailyFreeSubmissions, "rewards:", rewards, "userDataLoaded:", userDataLoaded);
+
+    if (!userDataLoaded) {
+        console.warn("updateUIBasedOnUserData called before user data was loaded. Deferring UI update.");
+        return;
+    }
+
+    const submissionCounterEl = document.getElementById("submission-counter");
+    const creditsInfoEl = document.getElementById("credits-info");
+
+    // Ensure variables are defined with default values if not set
+    const currentDailyCount = typeof dailyStoryCount !== 'undefined' ? dailyStoryCount : 0;
+    const currentRewards = typeof rewards !== 'undefined' ? rewards : 0; // Default to 0 if undefined after load
+    const currentMaxFreeSubmissions = typeof maxDailyFreeSubmissions !== 'undefined' ? maxDailyFreeSubmissions : 2;
+
+    if (submissionCounterEl) {
+        const freeSubmissionsLeft = Math.max(0, currentMaxFreeSubmissions - currentDailyCount);
+        submissionCounterEl.textContent = `${freeSubmissionsLeft} free entries left today`;
+        if (freeSubmissionsLeft === 0) {
+            submissionCounterEl.classList.add("warning");
+        } else {
+            submissionCounterEl.classList.remove("warning");
+        }
+    }
+
+    if (creditsInfoEl) {
+        if (currentDailyCount >= currentMaxFreeSubmissions) {
+            if (currentRewards > 0) {
+                creditsInfoEl.textContent = `You've used all free entries. Each additional entry costs 1 credit. You have ${currentRewards} credits.`;
+            } else {
+                creditsInfoEl.textContent = `You've used all free entries and have no credits left. Come back tomorrow!`;
+            }
+            creditsInfoEl.classList.add("visible");
+        } else {
+            creditsInfoEl.classList.remove("visible");
+        }
+    }
+    
+    // This function will now solely manage the button's state
+    updateSubmitButtonState(); 
 }
 

@@ -3,7 +3,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // If we have one, redirect to dashboard instead of clearing tokens
     if (tokenManager.migrateRememberedToken()) {
         console.log("Valid remembered token found, redirecting to dashboard");
-        window.location.href = "dashboard.html";
+        window.location.href = "/pages_old/dashboard.html"; // MODIFIED: Use direct path to HTML file
         return;
     }
     
@@ -191,11 +191,11 @@ document.addEventListener("DOMContentLoaded", function () {
                 // Show success message
                 showSuccess(loginSuccess, "Login successful! Redirecting...");
                 
-                console.log("Login successful, token stored in sessionStorage, redirecting to dashboard");
+                console.log("Login successful, token stored, redirecting to /pages_old/dashboard.html");
                 
                 // Redirect after short delay to show success message
                 setTimeout(() => {
-                    window.location.href = "dashboard.html"; // Redirect after login
+                    window.location.href = "/pages_old/dashboard.html"; // MODIFIED: Use direct path to HTML file
                 }, 1500);
             } else {
                 // Stop loading
